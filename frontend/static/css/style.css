@@ -1,0 +1,100 @@
+/* 添加管理员相关样式 */
+.admin-section {
+    max-width: 600px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.key-display {
+    background-color: #e9ecef;
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+    font-family: monospace;
+    word-break: break-all;
+}
+
+.key-form {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #dee2e6;
+}
+
+.note {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.admin-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #dee2e6;
+}
+
+.delete-form {
+    display: inline;
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 1rem;
+}
+
+.btn:hover {
+    background-color: #0069d9;
+}
+
+.btn-edit {
+    background-color: #17a2b8;
+}
+
+.btn-edit:hover {
+    background-color: #138496;
+}
+
+.btn-delete {
+    background-color: #dc3545;
+}
+
+.btn-delete:hover {
+    background-color: #c82333;
+}
+
+.btn-logout {
+    background-color: #6c757d;
+}
+
+.btn-logout:hover {
+    background-color: #5a6268;
+}
+
+.status {
+    color: #28a745;
+    font-weight: bold;
+    margin-left: auto;
+    align-self: center;
+}
+
+.alert {
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 1rem;
+    border-radius: 4px;
+}
+
+.alert-danger {
+    color: #721c24;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+}

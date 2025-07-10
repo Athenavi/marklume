@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link href="/static/css/style.css" rel="stylesheet">
+<main class="container">
+    <section class="admin-section">
+        <h2>管理员密钥</h2>
+
+        {% if error %}
+        <div class="alert alert-danger">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <div class="key-info">
+            <p>当前会话的管理员密钥请在终端查看</p>
+            <p class="note">请妥善保管此密钥，应用重启后将重新生成</p>
+        </div>
+
+        <form action="/admin/login" class="key-form" method="post">
+            <div class="form-group">
+                <label for="key-input">输入密钥以启用管理员权限：</label>
+                <input class="key-display" id="key-input" name="key" placeholder="粘贴管理员密钥" required
+                       type="password">
+            </div>
+            <button class="btn" type="submit">激活管理员权限</button>
+        </form>
+
+        {% if is_admin %}
+        <div class="admin-actions">
+            <form action="/admin/logout" method="post">
+                <button class="btn btn-logout" type="submit">退出管理员</button>
+            </form>
+            <p class="status">管理员权限已激活（72小时内有效）</p>
+        </div>
+        {% endif %}
+    </section>
+</main>
+{% endblock %}

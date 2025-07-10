@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="p-8">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">{{ article.title }}</h1>
+                    <div class="mt-2 flex items-center text-gray-500">
+                        <span>创建于: {{ article.created_at.strftime('%Y年%m月%d日 %H:%M') }}</span>
+                        <span class="mx-2">•</span>
+                        <span>更新于: {{ article.updated_at.strftime('%Y年%m月%d日 %H:%M') }}</span>
+                    </div>
+                </div>
+                {% if is_admin %}
+                <div class="flex space-x-3">
+                    <a class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md flex items-center"
+                       href="/articles/{{ article.id }}/edit"
+                       hx-boost="true">
+                        <i class="fas fa-edit mr-2"></i> 编辑
+                    </a>
+                    <button class="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-md flex items-center"
+                            hx-delete="/articles/{{ article.id }}"
+                            hx-swap="innerHTML"
+                            hx-target="body">
+                        <i class="fas fa-trash mr-2"></i> 删除
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="prose prose-lg max-w-none border-t border-gray-100 pt-6">
+                {{ article.content | safe }}
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-8 flex justify-between">
+        <a class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md flex items-center"
+           href="/"
+           hx-boost="true">
+            <i class="fas fa-arrow-left mr-2"></i> 返回列表
+        </a>
+    </div>
+</div>
+{% endblock %}

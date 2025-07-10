@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>博客系统</title>
+    <script crossorigin="anonymous"
+            integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"
+            src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        dark: '#1F2937'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+<!-- 导航栏 -->
+<nav class="bg-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+            <div class="flex">
+                <div class="flex-shrink-0 flex items-center">
+                    <i class="fas fa-blog text-primary text-2xl mr-2"></i>
+                    <span class="text-xl font-bold text-gray-800">博客系统</span>
+                </div>
+            </div>
+            {% if is_admin %}
+            <div class="flex items-center">
+                <a class="ml-4 px-4 py-2 bg-primary hover:bg-blue-700 text-white rounded-md transition duration-300 flex items-center"
+                   href="/articles/new"
+                   hx-boost="true">
+                    <i class="fas fa-plus mr-2"></i> 新建文章
+                </a>
+
+                <a href="/admin/key">管理员</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+
+<!-- 主要内容区域 -->
+<main class="flex-grow">
+    {% block content %}{% endblock %}
+</main>
+
+<!-- 页脚 -->
+<footer class="bg-gray-800 text-white py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex flex-col md:flex-row justify-between items-center">
+            <div class="mb-4 md:mb-0">
+                <h3 class="text-lg font-semibold">博客系统</h3>
+                <p class="text-gray-400 mt-1">使用 FastAPI + HTMX + Tailwind CSS 构建</p>
+            </div>
+            <div class="flex space-x-4">
+                <a class="text-gray-400 hover:text-white transition" href="#">
+                    <i class="fab fa-github text-xl"></i>
+                </a>
+                <a class="text-gray-400 hover:text-white transition" href="#">
+                    <i class="fab fa-twitter text-xl"></i>
+                </a>
+                <a class="text-gray-400 hover:text-white transition" href="#">
+                    <i class="fab fa-linkedin text-xl"></i>
+                </a>
+            </div>
+        </div>
+        <div class="mt-6 text-center text-gray-400 text-sm">
+            &copy; 2023 博客系统. 保留所有权利.
+        </div>
+    </div>
+</footer>
+
+<!-- 操作成功提示 -->
+<div class="fixed bottom-4 right-4 p-4 bg-green-500 text-white rounded-lg shadow-lg transform translate-y-20 transition-transform duration-300 hidden"
+     id="toast">
+    <div class="flex items-center">
+        <i class="fas fa-check-circle mr-2"></i>
+        <span id="toast-message">操作成功</span>
+    </div>
+</div>
+
+<script>
+    // 显示操作成功提示
+    function showToast(message) {
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+
+        toastMessage.textContent = message;
+        toast.classList.remove('hidden');
+        toast.classList.remove('translate-y-20');
+        toast.classList.add('-translate-y-0');
+
+        setTimeout(() => {
+            toast.classList.remove('-translate-y-0');
+            toast.classList.add('translate-y-20');
+            setTimeout(() => toast.classList.add('hidden'), 300);
+        }, 3000);
+    }
+
+    // 监听HTMX请求完成事件
+    document.body.addEventListener('htmx:afterSwap', function (evt) {
+        // 如果请求来自表单提交（创建或更新文章）
+        if (evt.detail.requestConfig.path.includes('/articles') &&
+            (evt.detail.requestConfig.verb === 'post' || evt.detail.requestConfig.verb === 'put')) {
+            showToast(evt.detail.requestConfig.verb === 'post' ? '文章创建成功' : '文章更新成功');
+        }
+    });
+
+    // 监听删除操作
+    document.body.addEventListener('htmx:afterRequest', function (evt) {
+        if (evt.detail.requestConfig.verb === 'delete' &&
+            evt.detail.requestConfig.path.includes('/articles')) {
+            showToast('文章删除成功');
+        }
+    });
+</script>
+</body>
+</html>
