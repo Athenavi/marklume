@@ -3,17 +3,21 @@ import logging
 import secrets
 from contextlib import asynccontextmanager
 from datetime import timedelta
-
+import sys
+from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException, Form, Depends, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import APIKeyCookie
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 
-from backend.database import init_archive, cleanup_cache, get_articles, get_article, create_new_article, \
-    update_article_db, delete_article_db
+from .database import init_archive, cleanup_cache, get_articles, create_new_article, get_article, \
+    delete_article_db, update_article_db
 
 logger = logging.getLogger(__name__)
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
 # 管理员密钥管理
 ADMIN_KEY = secrets.token_urlsafe(32)
@@ -56,8 +60,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-
-app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
+app.add_middleware(SessionMiddleware, secret_key=secrets.token_urlsafe(32))
+base_dir = Path(__file__).parent.parent
+static_dir = base_dir.joinpath("frontend/static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 templates = Jinja2Templates(directory="frontend/templates")
 
 

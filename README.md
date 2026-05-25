@@ -40,7 +40,7 @@ pip install -r requirements.txt
 mkdir -p archive
 
 # 启动服务
-uvicorn main:app --reload
+uvicorn backend.main:app --reload
 ```
 
 ### Docker运行
