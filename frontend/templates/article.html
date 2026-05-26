@@ -1,47 +1,148 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div class="p-8">
-            <div class="flex justify-between items-start mb-6">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-900">{{ article.title }}</h1>
-                    <div class="mt-2 flex items-center text-gray-500">
-                        <span>创建于: {{ article.created_at.strftime('%Y年%m月%d日 %H:%M') }}</span>
-                        <span class="mx-2">•</span>
-                        <span>更新于: {{ article.updated_at.strftime('%Y年%m月%d日 %H:%M') }}</span>
+<!-- 引入所需库 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tocbot/4.25.0/tocbot.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tocbot/4.25.0/tocbot.css">
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div class="lg:grid lg:grid-cols-[1fr_250px] lg:gap-10">
+        <!-- 主内容区 -->
+        <article class="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
+            <div class="p-8 sm:p-10">
+                <!-- 标题区 -->
+                <header class="mb-8">
+                    <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight">
+                        {{ article.title }}
+                    </h1>
+                    <div class="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                        <span><i class="far fa-calendar-alt mr-1"></i> {{ article.created_at.strftime('%Y年%m月%d日') }}</span>
+                        <span class="text-slate-300">|</span>
+                        <span><i class="far fa-edit mr-1"></i> {{ article.updated_at.strftime('%Y年%m月%d日') }}</span>
                     </div>
+                </header>
+
+                <!-- 文章正文（Markdown 渲染容器） -->
+                <div id="markdown-content" class="hidden">{{ article.content }}</div>
+                <div id="article-body" class="prose prose-lg max-w-none prose-slate prose-headings:scroll-mt-20
+                    prose-a:text-primary-600 prose-a:no-underline hover:prose-a:underline
+                    prose-code:before:content-none prose-code:after:content-none
+                    prose-pre:bg-slate-900 prose-pre:rounded-xl prose-img:rounded-lg">
+                    <!-- 动态填充渲染后的 HTML -->
                 </div>
+
+                <!-- 管理员操作 -->
                 {% if is_admin %}
-                <div class="flex space-x-3">
-                    <a class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md flex items-center"
-                       href="/articles/{{ article.id }}/edit"
+                <div class="mt-10 pt-6 border-t border-slate-100 flex gap-3">
+                    <a href="/articles/{{ article.id }}/edit"
+                       class="inline-flex items-center px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
                        hx-boost="true">
-                        <i class="fas fa-edit mr-2"></i> 编辑
+                        <i class="fas fa-pen mr-2"></i>编辑
                     </a>
-                    <button class="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-md flex items-center"
-                            hx-delete="/articles/{{ article.id }}"
+                    <button hx-delete="/articles/{{ article.id }}"
                             hx-swap="innerHTML"
-                            hx-target="body">
-                        <i class="fas fa-trash mr-2"></i> 删除
+                            hx-target="body"
+                            class="inline-flex items-center px-4 py-2 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors">
+                        <i class="fas fa-trash mr-2"></i>删除
                     </button>
                 </div>
                 {% endif %}
             </div>
+        </article>
 
-            <div class="prose prose-lg max-w-none border-t border-gray-100 pt-6">
-                {{ article.content | safe }}
+        <!-- 侧边栏：文章目录 -->
+        <aside class="hidden lg:block">
+            <div class="sticky top-24">
+                <h4 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">
+                    <i class="fas fa-list-ul mr-1.5"></i>目录
+                </h4>
+                <nav id="toc" class="toc"></nav>
             </div>
-        </div>
+        </aside>
     </div>
 
-    <div class="mt-8 flex justify-between">
-        <a class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md flex items-center"
-           href="/"
+    <!-- 返回按钮 -->
+    <div class="mt-8">
+        <a href="/" class="inline-flex items-center px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
            hx-boost="true">
-            <i class="fas fa-arrow-left mr-2"></i> 返回列表
+            <i class="fas fa-arrow-left mr-2"></i>返回文章列表
         </a>
     </div>
 </div>
+
+<script>
+    // 配置 marked 使用 highlight.js
+    marked.setOptions({
+        highlight: function(code, lang) {
+            if (lang && hljs.getLanguage(lang)) {
+                return hljs.highlight(code, { language: lang }).value;
+            }
+            return hljs.highlightAuto(code).value;
+        },
+        breaks: true,
+        gfm: true
+    });
+
+    // 获取 Markdown 原文并渲染
+    const mdSource = document.getElementById('markdown-content').textContent;
+    const renderedHTML = marked.parse(mdSource);
+    document.getElementById('article-body').innerHTML = renderedHTML;
+
+    // 重新高亮所有代码块
+    document.querySelectorAll('pre code').forEach((block) => {
+        hljs.highlightElement(block);
+    });
+
+    // 初始化目录（要求文章标题有 id，marked 默认会为标题生成 id）
+    tocbot.init({
+        tocSelector: '#toc',
+        contentSelector: '#article-body',
+        headingSelector: 'h2, h3',
+        hasInnerContainers: true,
+        linkClass: 'toc-link',
+        activeLinkClass: 'is-active-link',
+        listClass: 'toc-list',
+        listItemClass: 'toc-list-item',
+        collapseDepth: 3,
+        scrollSmooth: true,
+        scrollSmoothOffset: -80
+    });
+
+    // 监听 HTMX 删除完成后的重定向（已经由 hx-target="body" 接管）
+    document.body.addEventListener('htmx:afterRequest', function(e) {
+        if (e.detail.requestConfig.verb === 'delete' &&
+            e.detail.requestConfig.path.includes('/articles/')) {
+            window.location.href = '/';
+        }
+    });
+</script>
+
+<style>
+    /* 目录样式微调 */
+    .toc {
+        @apply text-sm leading-relaxed;
+    }
+    .toc-list {
+        @apply list-none p-0 m-0;
+    }
+    .toc-list-item {
+        @apply mb-1;
+    }
+    .toc-link {
+        @apply block py-1 px-3 rounded-lg text-slate-500 no-underline transition-all;
+    }
+    .toc-link:hover {
+        @apply bg-slate-100 text-slate-800;
+    }
+    .is-active-link {
+        @apply bg-primary-50 text-primary-700 font-medium border-l-2 border-primary-500;
+    }
+    /* 适配 prose 内的标题偏移 */
+    .prose h2, .prose h3 {
+        scroll-margin-top: 5rem;
+    }
+</style>
 {% endblock %}

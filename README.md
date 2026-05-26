@@ -1,4 +1,4 @@
-# MarkLume - 个人极简博客系统
+# ~~MarkLume~~ - 个人极简博客系统
 
 ![MarkLume Logo](https://via.placeholder.com/150/4a86e8/ffffff?text=ML)  
 *轻如羽毛，快如闪电的个人知识管理工具*

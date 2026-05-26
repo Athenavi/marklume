@@ -19,19 +19,39 @@ logger = logging.getLogger(__name__)
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# 管理员密钥管理
-ADMIN_KEY = secrets.token_urlsafe(32)
+# ---------- 管理员密钥持久化 ----------
+ADMIN_KEY_FILE = project_root / "admin_key.txt"
 ADMIN_KEY_NAME = "marklume_admin_key"
-ADMIN_KEY_EXPIRY = timedelta(hours=72)
+# Cookie 有效期设为 10 年（永不过期）
+ADMIN_KEY_EXPIRY = timedelta(days=365 * 10)
 
-print(f"管理员密钥已生成（本次会话有效）: {ADMIN_KEY}")
 
-# API密钥验证方案
+def load_admin_key():
+    """从文件加载密钥，若不存在则生成并保存"""
+    if ADMIN_KEY_FILE.exists():
+        return ADMIN_KEY_FILE.read_text().strip()
+    else:
+        new_key = secrets.token_urlsafe(32)
+        ADMIN_KEY_FILE.write_text(new_key)
+        print(f"已生成新的管理员密钥并保存到 {ADMIN_KEY_FILE}：{new_key}")
+        return new_key
+
+
+def save_admin_key(key: str):
+    """将密钥写入文件"""
+    ADMIN_KEY_FILE.write_text(key)
+
+
+# 全局管理员密钥（运行时变量）
+ADMIN_KEY = load_admin_key()
+print(f"当前管理员密钥已加载（持久化存储）: {ADMIN_KEY}")
+
+# ---------- 密钥验证 ----------
 admin_key_scheme = APIKeyCookie(name=ADMIN_KEY_NAME, auto_error=False)
 
 
 def validate_admin_key(admin_key: str = Depends(admin_key_scheme)):
-    """验证管理员密钥"""
+    """验证管理员密钥（与全局变量比较）"""
     if admin_key != ADMIN_KEY:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -40,18 +60,14 @@ def validate_admin_key(admin_key: str = Depends(admin_key_scheme)):
     return admin_key
 
 
-# 生命周期事件处理器
+# ---------- 应用生命周期 ----------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 启动时初始化
+    # 启动时初始化数据库
     init_archive()
-
-    # 创建后台清理任务
+    # 后台定期清理缓存
     task = asyncio.create_task(periodic_cleanup())
-
-    yield  # 应用运行中
-
-    # 关闭时取消任务
+    yield
     task.cancel()
     try:
         await task
@@ -62,18 +78,18 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=secrets.token_urlsafe(32))
 base_dir = Path(__file__).parent.parent
-static_dir = base_dir.joinpath("frontend/static")
+static_dir = base_dir / "frontend/static"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 templates = Jinja2Templates(directory="frontend/templates")
 
 
 async def periodic_cleanup():
-    """定期清理缓存"""
     while True:
-        await asyncio.sleep(1800)  # 每30分钟清理一次
+        await asyncio.sleep(1800)
         cleanup_cache()
 
 
+# ---------- 文章路由（保持不变） ----------
 @app.get("/")
 @app.get("/articles")
 async def list_articles(request: Request):
@@ -142,10 +158,7 @@ async def create_article(
         })
     except Exception as e:
         logger.error(f"Article creation failed: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="无法创建文章，请稍后再试"
-        )
+        raise HTTPException(status_code=500, detail="无法创建文章，请稍后再试")
 
 
 @app.put("/articles/{article_id}")
@@ -181,14 +194,16 @@ async def remove_article(
     })
 
 
-# 管理员密钥管理路由
+# ---------- 管理员密钥页面（增强） ----------
 @app.get("/admin/key")
 async def get_admin_key_page(request: Request):
-    """显示管理员密钥页面"""
+    """显示管理员密钥管理页面（登录后可刷新密钥）"""
+    is_admin = request.cookies.get(ADMIN_KEY_NAME) == ADMIN_KEY
     return templates.TemplateResponse("admin_key.html", {
         "request": request,
-        # "key": ADMIN_KEY,
-        "is_admin": request.cookies.get(ADMIN_KEY_NAME) == ADMIN_KEY
+        "is_admin": is_admin,
+        # 新密钥仅在刷新成功后的重定向中临时显示（通过 session）
+        "new_key": request.session.pop("new_key", None)
     })
 
 
@@ -197,7 +212,7 @@ async def login_admin(
         request: Request,
         key: str = Form(...)
 ):
-    """设置管理员密钥cookie"""
+    """管理员登录，设置长期 Cookie"""
     response = RedirectResponse(url="/", status_code=303)
     if key == ADMIN_KEY:
         expiry = int(ADMIN_KEY_EXPIRY.total_seconds())
@@ -216,7 +231,30 @@ async def login_admin(
 
 @app.post("/admin/logout")
 async def logout_admin():
-    """清除管理员密钥cookie"""
+    """退出登录，清除 Cookie"""
     response = RedirectResponse(url="/", status_code=303)
+    response.delete_cookie(ADMIN_KEY_NAME)
+    return response
+
+
+@app.post("/admin/refresh-key")
+async def refresh_admin_key(
+        request: Request,
+        _: str = Depends(validate_admin_key)  # 需要当前有效密钥
+):
+    """刷新管理员密钥（生成新密钥，更新文件与全局变量）"""
+    global ADMIN_KEY
+    # 生成新密钥
+    new_key = secrets.token_urlsafe(32)
+    # 更新文件
+    save_admin_key(new_key)
+    # 更新运行时变量
+    ADMIN_KEY = new_key
+    print(f"管理员密钥已刷新：{new_key}")
+
+    # 将新密钥存入 session，以便页面展示（仅一次）
+    request.session["new_key"] = new_key
+    # 重定向到密钥管理页面，同时清除旧 Cookie（强制重新登录）
+    response = RedirectResponse(url="/admin/key", status_code=303)
     response.delete_cookie(ADMIN_KEY_NAME)
     return response
