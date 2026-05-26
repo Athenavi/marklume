@@ -266,17 +266,25 @@ async def refresh_admin_key(request: Request, _: str = Depends(validate_admin_ke
 
 
 # 部署相关导入
-from .deploy_utils import generate_static_site, push_to_github, get_github_username
+from .deploy_utils import (
+    generate_static_site,
+    push_to_github,
+    get_github_username,
+    incremental_deploy,
+    prepare_incremental_deploy,
+    push_to_github_incremental,
+)
 import threading
 
 # 部署状态（简单示意，实际可用任务队列）
-deploy_status = {"running": False, "message": ""}
+deploy_status = {"running": False, "message": "", "mode": "", "changes": None}
 
 
 # 新增部署表单（只有标题和 token）
 class DeployForm(BaseModel):
     site_title: str = "My Blog"
     github_token: str
+    mode: str = "auto"  # auto | full | incremental
 
 
 @app.get("/deploy")
@@ -291,40 +299,63 @@ async def start_deploy(request: Request, form_data: DeployForm):
 
     deploy_status["running"] = True
     deploy_status["message"] = "正在连接 GitHub..."
+    deploy_status["mode"] = form_data.mode
+    deploy_status["changes"] = None
 
     backup_dir = Path(f"backups/{int(time.time())}")
 
     def run_deploy():
-        site_dir = None  # 初始化，避免未赋值错误
-        # 1. 获取用户名，构建站点链接
-        username = get_github_username(form_data.github_token)
-        site_link = f"https://{username}.github.io"
+        site_dir = None
         try:
-
+            # 1. 获取用户名，构建站点链接
+            username = get_github_username(form_data.github_token)
+            site_link = f"https://{username}.github.io"
             deploy_status["message"] = f"目标站点：{site_link}，正在生成静态文件..."
 
-            # 2. 生成站点
-            site_dir = generate_static_site(form_data.site_title, site_link,
-                                            backup_dir=backup_dir)
-            deploy_status["message"] = "静态文件已生成，正在推送到 GitHub..."
+            # 2. 根据模式执行部署
+            if form_data.mode == "full":
+                # 全量部署
+                deploy_status["message"] = "执行全量部署..."
+                site_dir, _ = generate_static_site(form_data.site_title, site_link, backup_dir=backup_dir)
+                push_to_github(site_dir, form_data.github_token)
+                deploy_status["message"] = f"全量部署成功！访问 {site_link}"
+                deploy_status["mode"] = "full"
+            else:
+                # 自动/增量部署
+                deploy_status["message"] = "正在分析文件变更..."
+                result = incremental_deploy(
+                    form_data.site_title,
+                    site_link,
+                    form_data.github_token,
+                    backup_dir=backup_dir
+                )
+                
+                deploy_status["changes"] = result.get("changes")
+                deploy_status["mode"] = result.get("mode", "incremental")
+                
+                if result["status"] == "skipped":
+                    deploy_status["message"] = "没有文件变更，无需部署"
+                else:
+                    changes = result.get("changes", {})
+                    added = len(changes.get("added", []))
+                    modified = len(changes.get("modified", []))
+                    deleted = len(changes.get("deleted", []))
+                    deploy_status["message"] = (
+                        f"增量部署成功！+{added} ~{modified} -{deleted} 个文件\n"
+                        f"访问 {site_link}"
+                    )
 
-            # 3. 推送
-            push_to_github(site_dir, form_data.github_token)
-            deploy_status[
-                "message"] = (f"部署成功！几分钟后可通过 {site_link} 访问;"
-                              f"\n打开仓库 https://github.com/{username}/{site_link}/;"
-                              f"\n本次任务成功生成的静态文件，已保存在 {backup_dir} 中")
         except Exception as e:
-            deploy_status["message"] = (
-                f"部署失败：{str(e)},打开项目部署日志 https://github.com/{username}/{site_link}/actions")
+            deploy_status["message"] = f"部署失败：{str(e)}"
+            deploy_status["mode"] = "error"
         finally:
             deploy_status["running"] = False
-            if site_dir is not None:  # 仅在 site_dir 被成功创建时才清理
+            if site_dir is not None:
                 shutil.rmtree(site_dir, ignore_errors=True)
 
     thread = threading.Thread(target=run_deploy)
     thread.start()
-    return {"message": "部署已开始"}
+    return {"message": "部署已开始", "mode": form_data.mode}
 
 
 @app.get("/deploy/status")
@@ -332,6 +363,33 @@ async def deploy_status_api():
     return deploy_status
 
 
-@app.get("/deploy/status")
-async def deploy_status_api():
-    return deploy_status
+@app.get("/deploy/preview")
+async def deploy_preview(request: Request, github_token: str):
+    """预览部署变更（不实际部署）"""
+    try:
+        username = get_github_username(github_token)
+        site_link = f"https://{username}.github.io"
+        
+        # 生成站点和 manifest
+        site_dir, local_manifest = generate_static_site(
+            "Preview",
+            site_link,
+            with_manifest=True
+        )
+        
+        if not local_manifest:
+            return {"error": "无法生成 manifest"}
+        
+        # 获取差异
+        _, diff = prepare_incremental_deploy(github_token, local_manifest)
+        
+        # 清理临时目录
+        shutil.rmtree(site_dir, ignore_errors=True)
+        
+        return {
+            "status": "success",
+            "changes": diff.to_dict(),
+            "site_link": site_link
+        }
+    except Exception as e:
+        return {"error": str(e)}
