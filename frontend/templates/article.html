@@ -74,8 +74,11 @@
 </div>
 
 <script>
-    // 配置 marked 使用 highlight.js
+(function() {
+    // 配置 marked：启用标题 id 并设置前缀
     marked.setOptions({
+        headerIds: true,
+        headerPrefix: 'article-',
         highlight: function(code, lang) {
             if (lang && hljs.getLanguage(lang)) {
                 return hljs.highlight(code, { language: lang }).value;
@@ -87,16 +90,29 @@
     });
 
     // 获取 Markdown 原文并渲染
-    const mdSource = document.getElementById('markdown-content').textContent;
+    const mdSource = document.getElementById('markdown-content').textContent.trim();
     const renderedHTML = marked.parse(mdSource);
-    document.getElementById('article-body').innerHTML = renderedHTML;
+    const articleBody = document.getElementById('article-body');
+    articleBody.innerHTML = renderedHTML;
 
-    // 重新高亮所有代码块
-    document.querySelectorAll('pre code').forEach((block) => {
+    // 高亮所有代码块
+    articleBody.querySelectorAll('pre code').forEach(block => {
         hljs.highlightElement(block);
     });
 
-    // 初始化目录（要求文章标题有 id，marked 默认会为标题生成 id）
+    // 兜底：确保所有标题都有 id（marked 已生成，但以防万一）
+    articleBody.querySelectorAll('h2, h3, h4, h5, h6').forEach((heading, index) => {
+        if (!heading.id) {
+            heading.id = `section-${index}`;
+        }
+    });
+
+    // 销毁旧 tocbot 实例，防止重复初始化
+    if (typeof tocbot !== 'undefined') {
+        tocbot.destroy();
+    }
+
+    // 初始化目录
     tocbot.init({
         tocSelector: '#toc',
         contentSelector: '#article-body',
@@ -108,16 +124,18 @@
         listItemClass: 'toc-list-item',
         collapseDepth: 3,
         scrollSmooth: true,
-        scrollSmoothOffset: -80
+        scrollSmoothOffset: -80,       // 避免被固定导航栏遮挡
+        headingsOffset: -80,
     });
 
-    // 监听 HTMX 删除完成后的重定向（已经由 hx-target="body" 接管）
+    // 监听 HTMX 删除完成后的重定向
     document.body.addEventListener('htmx:afterRequest', function(e) {
         if (e.detail.requestConfig.verb === 'delete' &&
             e.detail.requestConfig.path.includes('/articles/')) {
             window.location.href = '/';
         }
     });
+})();
 </script>
 
 <style>
@@ -132,7 +150,7 @@
         @apply mb-1;
     }
     .toc-link {
-        @apply block py-1 px-3 rounded-lg text-slate-500 no-underline transition-all;
+        @apply block py-1 px-3 rounded-lg text-slate-500 no-underline transition-all cursor-pointer select-none;
     }
     .toc-link:hover {
         @apply bg-slate-100 text-slate-800;

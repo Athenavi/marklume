@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <title>MarkLume · 极简博客</title>
+    <title>{{ SITE_TITLE }}</title>
     <!-- HTMX -->
     <script crossorigin="anonymous"
             integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"
@@ -125,11 +125,12 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
             <!-- Logo区域 -->
-            <a href="/" class="flex items-center gap-2 text-primary-600 hover:text-primary-700 transition-colors">
+            <a href="{{ site_link }}"
+               class="flex items-center gap-2 text-primary-600 hover:text-primary-700 transition-colors">
                 <div class="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center shadow-md">
                     <i class="fas fa-feather-alt text-white text-sm"></i>
                 </div>
-                <span class="text-xl font-bold tracking-tight">MarkLume</span>
+                <span class="text-xl font-bold tracking-tight">{{ site_title }}</span>
             </a>
 
             <!-- 管理员操作区 -->

@@ -1,47 +1,49 @@
 {% extends "base.html" %}
 
 {% block content %}
-<main class="container">
-    <section class="admin-section">
-        <h2>管理员密钥管理</h2>
+    <link href="/static/css/style.css"/>
+    <main class="container">
+        <section class="admin-section">
+            <h2>管理员密钥管理</h2>
 
-        {% if error %}
-        <div class="alert alert-danger">{{ error }}</div>
-        {% endif %}
+            {% if error %}
+                <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
 
-        {# 刷新密钥后展示新密钥（仅一次） #}
-        {% if new_key %}
-        <div class="alert alert-success">
-            <strong>密钥已刷新，请立即复制保存：</strong>
-            <code class="key-display">{{ new_key }}</code>
-        </div>
-        {% endif %}
+            {# 刷新密钥后展示新密钥（仅一次） #}
+            {% if new_key %}
+                <div class="alert alert-success">
+                    <strong>密钥已刷新，请立即复制保存：</strong>
+                    <code class="key-display">{{ new_key }}</code>
+                </div>
+            {% endif %}
 
-        <div class="key-info">
-            <p>管理员密钥已持久化保存，重启服务器不会丢失。</p>
-            <p class="note">如需更换密钥，请在登录后使用“刷新密钥”功能。</p>
-        </div>
-
-        <form action="/admin/login" class="key-form" method="post">
-            <div class="form-group">
-                <label for="key-input">输入密钥以激活管理员权限：</label>
-                <input class="key-display" id="key-input" name="key" placeholder="粘贴管理员密钥" required type="password">
+            <div class="key-info">
+                <p>管理员密钥已持久化保存，重启服务器不会丢失。</p>
+                <p class="note">如需更换密钥，请在登录后使用“刷新密钥”功能。</p>
             </div>
-            <button class="btn" type="submit">激活管理员权限</button>
-        </form>
 
-        {% if is_admin %}
-        <div class="admin-actions">
-            {# 刷新密钥按钮 #}
-            <form action="/admin/refresh-key" method="post" style="margin-bottom: 1em;">
-                <button class="btn btn-warning" type="submit">刷新管理员密钥</button>
+            <form action="/admin/login" class="key-form" method="post">
+                <div class="form-group">
+                    <label for="key-input">输入密钥以激活管理员权限：</label>
+                    <input class="key-display" id="key-input" name="key" placeholder="粘贴管理员密钥" required
+                           type="password">
+                </div>
+                <button class="btn" type="submit">激活管理员权限</button>
             </form>
-            <form action="/admin/logout" method="post">
-                <button class="btn btn-logout" type="submit">退出管理员</button>
-            </form>
-            <p class="status">管理员权限已激活（长期有效）</p>
-        </div>
-        {% endif %}
-    </section>
-</main>
+
+            {% if is_admin %}
+                <div class="admin-actions">
+                    {# 刷新密钥按钮 #}
+                    <form action="/admin/refresh-key" method="post" style="margin-bottom: 1em;">
+                        <button class="btn btn-warning" type="submit">刷新管理员密钥</button>
+                    </form>
+                    <form action="/admin/logout" method="post">
+                        <button class="btn btn-logout" type="submit">退出管理员</button>
+                    </form>
+                    <p class="status">管理员权限已激活（长期有效）</p>
+                </div>
+            {% endif %}
+        </section>
+    </main>
 {% endblock %}

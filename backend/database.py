@@ -3,198 +3,188 @@
 import glob
 import logging
 import os
+import re
+import threading
 from datetime import datetime
 from datetime import timedelta
+from typing import List, Optional
 
 from .models import Article
 
-# 配置日志
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-db = []  # 文章数据库
-next_id = 1  # 下一个文章ID
-CACHE_EXPIRY = timedelta(minutes=30)  # 缓存过期时间（30分钟）
-ARCHIVE_DIR = "archive"  # 存档目录
+# 数据库全局状态（需加锁保护）
+_lock = threading.Lock()
+_db: List[Article] = []
+_next_id: int = 1
+
+CACHE_EXPIRY = timedelta(minutes=30)
+ARCHIVE_DIR = "archive"
 
 
-def init_archive():
+def _safe_filename(title: str) -> str:
+    """将标题转换为安全文件名（仅保留字母数字、空格、连字符、下划线）"""
+    return re.sub(r'[^\w\s-]', '_', title).strip()
+
+
+def _load_content(file_path: str) -> str:
+    """读取文件内容，异常时返回错误提示"""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        logger.warning(f"Article file missing: {file_path}")
+        return "⚠️ 文章文件丢失，请联系管理员"
+    except OSError as e:
+        logger.error(f"Error loading content for {file_path}: {e}")
+        return "⚠️ 文章加载失败，请稍后再试"
+
+
+def init_archive() -> None:
     """启动时扫描archive目录并初始化文章"""
-    global db, next_id
+    global _db, _next_id
 
-    # 确保archive目录存在
     if not os.path.exists(ARCHIVE_DIR):
         os.makedirs(ARCHIVE_DIR)
         logger.info(f"Created archive directory: {ARCHIVE_DIR}")
         return
 
-    # 扫描所有.md文件
     md_files = glob.glob(os.path.join(ARCHIVE_DIR, "*.md"))
     logger.info(f"Found {len(md_files)} markdown files in archive")
 
-    # 添加文件到数据库（不加载内容）
-    for file_path in md_files:
-        filename = os.path.basename(file_path)
-        title = os.path.splitext(filename)[0]
+    with _lock:
+        for file_path in md_files:
+            filename = os.path.basename(file_path)
+            title = os.path.splitext(filename)[0]
 
-        # 获取文件元数据
-        try:
-            created_at = datetime.fromtimestamp(os.path.getctime(file_path))
-            updated_at = datetime.fromtimestamp(os.path.getmtime(file_path))
-        except OSError:
-            created_at = updated_at = datetime.now()
+            try:
+                created_at = datetime.fromtimestamp(os.path.getctime(file_path))
+                updated_at = datetime.fromtimestamp(os.path.getmtime(file_path))
+            except OSError:
+                created_at = updated_at = datetime.now()
 
-        article = Article(
-            id=next_id,
-            title=title,
-            content="",  # 内容留空，按需加载
-            created_at=created_at,
-            updated_at=updated_at,
-            file_path=file_path,
-            last_accessed=datetime.now()
-        )
-        db.append(article)
-        logger.info(f"Added archived article: {title} (ID: {next_id})")
-        next_id += 1
-
-
-def get_articles():
-    """获取所有文章（基本元数据）"""
-    return [{
-        "id": a.id,
-        "title": a.title,
-        "created_at": a.created_at,
-        "updated_at": a.updated_at,
-        "is_archived": bool(a.file_path)
-    } for a in db]
+            article = Article(
+                id=_next_id,
+                title=title,
+                content="",
+                created_at=created_at,
+                updated_at=updated_at,
+                file_path=file_path,
+                last_accessed=datetime.now()
+            )
+            _db.append(article)
+            logger.info(f"Added archived article: {title} (ID: {_next_id})")
+            _next_id += 1
 
 
-def create_new_article(title: str, content: str):
-    """创建新文章并保存到文件"""
-    global next_id
-
-    # 创建文件名（移除特殊字符）
-    safe_title = "".join(c if c.isalnum() or c in " -_" else "_" for c in title)
-    filename = f"{safe_title}.md"
-
-    # 检查文件是否已存在，如果存在则添加日期戳
-    now = datetime.now()
-    date_suffix = now.strftime("%d%m%y")  # 生成日期后缀，格式为：日月年
-    original_file_path = os.path.join(ARCHIVE_DIR, filename)
-    file_path = original_file_path
-
-    counter = 1
-    while os.path.exists(file_path):
-        # 如果文件已存在，则在文件名后添加日期戳，并尝试增加一个计数器，以防止同一日期创建多个文件时发生冲突
-        filename = f"{safe_title}_{date_suffix}_{counter}.md"
-        file_path = os.path.join(ARCHIVE_DIR, filename)
-        counter += 1
-
-    # 写入文件
-    try:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-    except OSError as e:
-        logger.error(f"Failed to create article file: {e}")
-        raise RuntimeError("Failed to save article")
-
-    article = Article(
-        id=next_id,
-        title=title,
-        content=content,
-        created_at=now,
-        updated_at=now,
-        file_path=file_path,
-        last_accessed=now
-    )
-    db.append(article)
-    logger.info(f"Created new article: {title} (ID: {next_id})")
-    next_id += 1
-    return article
+def get_articles() -> List[Article]:
+    """返回所有文章列表（浅拷贝，避免外部直接修改）"""
+    with _lock:
+        return list(_db)
 
 
-
-def update_article_db(article_id: int, title: str, content: str):
-    """更新文章并保存到文件"""
-    for article in db:
-        if article.id == article_id:
-            article.title = title
-            article.content = content
-            article.updated_at = datetime.now()
-            article.last_accessed = datetime.now()
-
-            # 更新文件
-            if article.file_path:
-                try:
-                    with open(article.file_path, 'w', encoding='utf-8') as f:
-                        f.write(content)
-                except OSError as e:
-                    logger.error(f"Failed to update article file: {e}")
-                    raise RuntimeError("Failed to update article")
-
-            logger.info(f"Updated article {article_id}: {title}")
-            return article
+def get_article(article_id: int) -> Optional[Article]:
+    """获取单篇文章（按需加载内容）"""
+    with _lock:
+        for article in _db:
+            if article.id == article_id:
+                # 按需加载内容
+                if article.file_path and not article.content:
+                    article.content = _load_content(article.file_path)
+                article.last_accessed = datetime.now()
+                return article
     return None
 
 
-def delete_article_db(article_id: int):
-    """删除文章及其文件"""
-    global db
+def create_new_article(title: str, content: str) -> Article:
+    """创建新文章并持久化到文件"""
+    global _next_id
 
-    for article in db[:]:
-        if article.id == article_id:
-            # 删除文件
-            if article.file_path and os.path.exists(article.file_path):
-                try:
-                    os.remove(article.file_path)
-                    logger.info(f"Deleted article file: {article.file_path}")
-                except OSError as e:
-                    logger.error(f"Failed to delete article file: {e}")
+    safe_title = _safe_filename(title)
+    now = datetime.now()
 
-            # 从数据库中移除
-            db.remove(article)
-            logger.info(f"Deleted article {article_id}")
-            return
+    # 生成不冲突的文件名
+    file_path = os.path.join(ARCHIVE_DIR, f"{safe_title}.md")
+    counter = 1
+    with _lock:
+        while os.path.exists(file_path):
+            filename = f"{safe_title}_{counter}.md"
+            file_path = os.path.join(ARCHIVE_DIR, filename)
+            counter += 1
 
+        # 写入文件
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+        except OSError as e:
+            logger.error(f"Failed to create article file: {e}")
+            raise IOError("无法保存文章文件") from e
+
+        article = Article(
+            id=_next_id,
+            title=title,
+            content=content,
+            created_at=now,
+            updated_at=now,
+            file_path=file_path,
+            last_accessed=now
+        )
+        _db.append(article)
+        logger.info(f"Created new article: {title} (ID: {_next_id})")
+        _next_id += 1
+        return article
+
+
+def update_article_db(article_id: int, title: str, content: str) -> Optional[Article]:
+    """更新文章标题与内容"""
+    with _lock:
+        for article in _db:
+            if article.id == article_id:
+                article.title = title
+                article.content = content
+                article.updated_at = datetime.now()
+                article.last_accessed = datetime.now()
+
+                # 更新对应文件
+                if article.file_path:
+                    try:
+                        with open(article.file_path, 'w', encoding='utf-8') as f:
+                            f.write(content)
+                    except OSError as e:
+                        logger.error(f"Failed to update article file: {e}")
+                        raise IOError("无法更新文章文件") from e
+
+                logger.info(f"Updated article {article_id}: {title}")
+                return article
+    return None
+
+
+def delete_article_db(article_id: int) -> None:
+    """删除文章及其对应文件"""
+    with _lock:
+        for article in _db[:]:  # 拷贝一份以便安全删除
+            if article.id == article_id:
+                if article.file_path and os.path.exists(article.file_path):
+                    try:
+                        os.remove(article.file_path)
+                        logger.info(f"Deleted article file: {article.file_path}")
+                    except OSError as e:
+                        logger.error(f"Failed to delete article file: {e}")
+                _db.remove(article)
+                logger.info(f"Deleted article {article_id}")
+                return
     logger.warning(f"Article {article_id} not found for deletion")
 
 
-def cleanup_cache():
-    """清理过期的文章缓存"""
+def cleanup_cache() -> None:
+    """清理过期的文章内容缓存（仅针对已加载的存档文章）"""
     now = datetime.now()
-    cleaned = 0
-
-    for article in db:
-        # 只清理来自文件的文章内容
-        if article.file_path and article.content:
-            # 如果超过30分钟未访问且内容已加载
-            if now - article.last_accessed > CACHE_EXPIRY:
-                article.content = ""  # 清除内容
-                cleaned += 1
-                logger.debug(f"Cleaned cache for article {article.id}")
-
-    if cleaned:
-        logger.info(f"Cleaned {cleaned} article caches")
-
-
-def get_article(article_id: int):
-    """获取文章详情（按需加载内容）"""
-    for article in db:
-        if article.id == article_id:
-            # 按需加载内容
-            if article.file_path and not article.content:
-                try:
-                    with open(article.file_path, 'r', encoding='utf-8') as f:
-                        article.content = f.read()
-                    logger.info(f"Loaded content for article {article_id} from {article.file_path}")
-                except FileNotFoundError:
-                    logger.warning(f"Article file missing: {article.file_path}")
-                    article.content = "⚠️ 文章文件丢失，请联系管理员"
-                except OSError as e:
-                    logger.error(f"Error loading content for article {article_id}: {str(e)}")
-                    article.content = "⚠️ 文章加载失败，请稍后再试"
-
-            # 更新访问时间
-            article.last_accessed = datetime.now()
-            return article
-    return None
+    with _lock:
+        cleaned = 0
+        for article in _db:
+            if article.file_path and article.content:
+                if now - article.last_accessed > CACHE_EXPIRY:
+                    article.content = ""
+                    cleaned += 1
+        if cleaned:
+            logger.info(f"Cleaned {cleaned} article caches")
