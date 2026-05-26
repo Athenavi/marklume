@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os.path
 import secrets
+import shutil
 from contextlib import asynccontextmanager
 from datetime import timedelta
 import sys
@@ -13,6 +14,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.security import APIKeyCookie
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
 from .database import (
@@ -260,3 +262,70 @@ async def refresh_admin_key(request: Request, _: str = Depends(validate_admin_ke
     response = RedirectResponse(url="/admin/key", status_code=303)
     response.delete_cookie(ADMIN_KEY_NAME)
     return response
+
+
+# 部署相关导入
+from .deploy_utils import generate_static_site, push_to_github, get_github_username
+import threading
+
+# 部署状态（简单示意，实际可用任务队列）
+deploy_status = {"running": False, "message": ""}
+
+
+# 新增部署表单（只有标题和 token）
+class DeployForm(BaseModel):
+    site_title: str = "My Blog"
+    github_token: str
+
+
+@app.get("/deploy")
+async def deploy_page(request: Request):
+    return render_template("deploy.html", request, status=deploy_status)
+
+
+@app.post("/deploy/start")
+async def start_deploy(request: Request, form_data: DeployForm):
+    if deploy_status["running"]:
+        return {"error": "已有部署任务正在进行中"}
+
+    deploy_status["running"] = True
+    deploy_status["message"] = "正在连接 GitHub..."
+
+    def run_deploy():
+        site_dir = None  # 初始化，避免未赋值错误
+        # 1. 获取用户名，构建站点链接
+        username = get_github_username(form_data.github_token)
+        site_link = f"https://{username}.github.io"
+        try:
+
+            deploy_status["message"] = f"目标站点：{site_link}，正在生成静态文件..."
+
+            # 2. 生成站点
+            site_dir = generate_static_site(form_data.site_title, site_link)
+            deploy_status["message"] = "静态文件已生成，正在推送到 GitHub..."
+
+            # 3. 推送
+            push_to_github(site_dir, form_data.github_token)
+            deploy_status[
+                "message"] = f"部署成功！几分钟后可通过 {site_link} 访问;\n打开仓库 https://github.com/{username}/{site_link}/"
+        except Exception as e:
+            deploy_status["message"] = (
+                f"部署失败：{str(e)},打开项目部署日志 https://github.com/{username}/{site_link}/actions")
+        finally:
+            deploy_status["running"] = False
+            if site_dir is not None:  # 仅在 site_dir 被成功创建时才清理
+                shutil.rmtree(site_dir, ignore_errors=True)
+
+    thread = threading.Thread(target=run_deploy)
+    thread.start()
+    return {"message": "部署已开始"}
+
+
+@app.get("/deploy/status")
+async def deploy_status_api():
+    return deploy_status
+
+
+@app.get("/deploy/status")
+async def deploy_status_api():
+    return deploy_status

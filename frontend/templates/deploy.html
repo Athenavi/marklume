@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>一键部署到 GitHub Pages - {{ site_title }}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container">
+    <h1>部署到 GitHub Pages</h1>
+
+    <div class="alert info">
+        <h3>如何获取 GitHub Token？</h3>
+        <ol>
+            <li>访问 <a href="https://github.com/settings/tokens" target="_blank">GitHub Tokens 设置</a></li>
+            <li>点击 <b>Generate new token (classic)</b></li>
+            <li>Note 填写 <code>MarkLume Deploy</code></li>
+            <li>勾选 <b>repo</b> 全部权限</li>
+            <li>点击生成，<b>立即复制 Token</b>（只显示一次）</li>
+        </ol>
+    </div>
+
+    <div class="alert warning">
+        ⚠️ 部署将强制推送至 <b>用户名.github.io</b> 仓库的 <b>main</b> 分支，原有内容将被完全覆盖。
+    </div>
+    <div class="alert warning">
+        ⚠️ 部署将强制推送至 <b>用户名.github.io</b> 仓库的 <b>main</b> 分支，原有内容将被完全覆盖。
+    </div>
+    <div class="alert warning">
+        ⚠️ 部署将强制推送至 <b>用户名.github.io</b> 仓库的 <b>main</b> 分支，原有内容将被完全覆盖。
+    </div>
+
+    <form id="deployForm">
+        <div class="form-group">
+            <label>站点标题</label>
+            <input type="text" name="site_title" value="My Blog" required>
+        </div>
+        <div class="form-group">
+            <label>GitHub Personal Access Token</label>
+            <input type="password" name="github_token" required placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+            <small>Token 仅用于本次部署，不会保存</small>
+        </div>
+        <button type="submit" id="deployBtn">开始部署</button>
+    </form>
+
+    <div id="status" style="margin-top:20px; padding:10px; border:1px solid #ccc; display:none;">
+        <strong>状态：</strong> <span id="statusMsg"></span>
+    </div>
+</div>
+
+<script>
+    const form = document.getElementById('deployForm');
+    const statusDiv = document.getElementById('status');
+    const statusMsg = document.getElementById('statusMsg');
+    const deployBtn = document.getElementById('deployBtn');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        deployBtn.disabled = true;
+        statusDiv.style.display = 'block';
+        statusMsg.textContent = '正在部署...';
+
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        try {
+            const res = await fetch('/deploy/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const result = await res.json();
+            if (result.error) {
+                statusMsg.textContent = result.error;
+                deployBtn.disabled = false;
+            } else {
+                // 轮询状态
+                const poll = setInterval(async () => {
+                    const statusRes = await fetch('/deploy/status');
+                    const status = await statusRes.json();
+                    statusMsg.textContent = status.message;
+                    if (!status.running) {
+                        clearInterval(poll);
+                        deployBtn.disabled = false;
+                    }
+                }, 2000);
+            }
+        } catch (err) {
+            statusMsg.textContent = '请求失败：' + err;
+            deployBtn.disabled = false;
+        }
+    });
+</script>
+</body>
+</html>
