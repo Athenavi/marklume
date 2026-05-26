@@ -11,7 +11,8 @@ from git import Repo, GitCommandError
 from jinja2 import Environment, FileSystemLoader
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-VERIFY = False
+VERIFY = False  # 是否验证 SSL （提高推送的成功率）
+BRANCH_TARGET = 'main'  # 目标分支(若您不放心初次提交，可以修改此处创建别的分支进行测试)
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).parent.parent
@@ -29,7 +30,7 @@ def get_github_username(token: str) -> str:
     return resp.json()["login"]
 
 
-def generate_static_site(site_title: str, site_link: str) -> Path:
+def generate_static_site(site_title: str, site_link: str, backup_dir: Path = None) -> Path:
     """生成静态站点到临时目录"""
     output_dir = Path(tempfile.mkdtemp(prefix="marklume_site_"))
 
@@ -78,10 +79,13 @@ def generate_static_site(site_title: str, site_link: str) -> Path:
         (art_dir / f"{art['id']}.html").write_text(art_html, encoding="utf-8")
 
     logger.info(f"静态站点已生成：{output_dir}")
+    if backup_dir:
+        shutil.copytree(output_dir, backup_dir)
+        logger.info(f"已备份静态站点：{backup_dir}")
     return output_dir
 
 
-def push_to_github(site_dir: Path, github_token: str, branch: str = "main"):
+def push_to_github(site_dir: Path, github_token: str, branch: str = BRANCH_TARGET):
     """
     自动部署到 {用户名}.github.io 仓库。
     - 从 token 获取用户名

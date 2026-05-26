@@ -3,6 +3,7 @@ import logging
 import os.path
 import secrets
 import shutil
+import time
 from contextlib import asynccontextmanager
 from datetime import timedelta
 import sys
@@ -291,6 +292,8 @@ async def start_deploy(request: Request, form_data: DeployForm):
     deploy_status["running"] = True
     deploy_status["message"] = "正在连接 GitHub..."
 
+    backup_dir = Path(f"backups/{int(time.time())}")
+
     def run_deploy():
         site_dir = None  # 初始化，避免未赋值错误
         # 1. 获取用户名，构建站点链接
@@ -301,13 +304,16 @@ async def start_deploy(request: Request, form_data: DeployForm):
             deploy_status["message"] = f"目标站点：{site_link}，正在生成静态文件..."
 
             # 2. 生成站点
-            site_dir = generate_static_site(form_data.site_title, site_link)
+            site_dir = generate_static_site(form_data.site_title, site_link,
+                                            backup_dir=backup_dir)
             deploy_status["message"] = "静态文件已生成，正在推送到 GitHub..."
 
             # 3. 推送
             push_to_github(site_dir, form_data.github_token)
             deploy_status[
-                "message"] = f"部署成功！几分钟后可通过 {site_link} 访问;\n打开仓库 https://github.com/{username}/{site_link}/"
+                "message"] = (f"部署成功！几分钟后可通过 {site_link} 访问;"
+                              f"\n打开仓库 https://github.com/{username}/{site_link}/;"
+                              f"\n本次任务成功生成的静态文件，已保存在 {backup_dir} 中")
         except Exception as e:
             deploy_status["message"] = (
                 f"部署失败：{str(e)},打开项目部署日志 https://github.com/{username}/{site_link}/actions")
