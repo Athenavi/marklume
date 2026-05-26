@@ -190,6 +190,35 @@
     <span id="toast-message" class="text-sm font-medium">操作成功</span>
 </div>
 
+<!-- 删除确认弹窗 -->
+<div id="delete-modal" class="fixed inset-0 z-50 hidden">
+    <!-- 背景遮罩 -->
+    <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="hideDeleteModal()"></div>
+    <!-- 弹窗内容 -->
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform scale-95 opacity-0 transition-all duration-200" id="delete-modal-content">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-exclamation-triangle text-red-500 text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-slate-800">确认删除</h3>
+                    <p class="text-sm text-slate-500">此操作不可撤销</p>
+                </div>
+            </div>
+            <p class="text-slate-600 mb-6" id="delete-modal-message">确定要删除这篇文章吗？</p>
+            <div class="flex justify-end gap-3">
+                <button onclick="hideDeleteModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors">
+                    取消
+                </button>
+                <button id="delete-confirm-btn" class="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors">
+                    确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // 显示 Toast
     function showToast(message) {
@@ -208,11 +237,55 @@
         }, 3000);
     }
 
+    // 删除确认弹窗
+    let pendingDeleteUrl = null;
+    let pendingDeleteTarget = null;
+
+    function showDeleteModal(url, target, title) {
+        pendingDeleteUrl = url;
+        pendingDeleteTarget = target;
+        const modal = document.getElementById('delete-modal');
+        const content = document.getElementById('delete-modal-content');
+        const message = document.getElementById('delete-modal-message');
+        
+        message.textContent = title ? `确定要删除「${title}」吗？` : '确定要删除这篇文章吗？';
+        modal.classList.remove('hidden');
+        
+        setTimeout(() => {
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+
+    function hideDeleteModal() {
+        const modal = document.getElementById('delete-modal');
+        const content = document.getElementById('delete-modal-content');
+        
+        content.classList.add('scale-95', 'opacity-0');
+        content.classList.remove('scale-100', 'opacity-100');
+        
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            pendingDeleteUrl = null;
+            pendingDeleteTarget = null;
+        }, 200);
+    }
+
+    document.getElementById('delete-confirm-btn').addEventListener('click', function() {
+        if (pendingDeleteUrl) {
+            htmx.ajax('DELETE', pendingDeleteUrl, {
+                target: pendingDeleteTarget || '#article-list',
+                swap: 'innerHTML'
+            });
+            hideDeleteModal();
+        }
+    });
+
     // 监听 HTMX 事件
     document.body.addEventListener('htmx:afterSwap', function (evt) {
         if (evt.detail.requestConfig.path.includes('/articles') &&
             (evt.detail.requestConfig.verb === 'post' || evt.detail.requestConfig.verb === 'put')) {
-            showToast(evt.detail.requestConfig.verb === 'post' ? '文章发布成功 ✨' : '文章已更新');
+            showToast(evt.detail.requestConfig.verb === 'post' ? '文章发布成功' : '文章已更新');
         }
     });
 

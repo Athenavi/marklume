@@ -42,9 +42,7 @@
                        hx-boost="true">
                         <i class="fas fa-pen mr-2"></i>编辑
                     </a>
-                    <button hx-delete="/articles/{{ article.id }}"
-                            hx-swap="innerHTML"
-                            hx-target="body"
+                    <button onclick="showDeleteModal('/articles/{{ article.id }}', 'body', '{{ article.title }}')"
                             class="inline-flex items-center px-4 py-2 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors">
                         <i class="fas fa-trash mr-2"></i>删除
                     </button>

@@ -1,50 +1,87 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>一键部署到 GitHub Pages - {{ site_title }}</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-<div class="container">
-    <h1>部署到 GitHub Pages</h1>
+{% extends "base.html" %}
 
-    <div class="alert info">
-        <h3>如何获取 GitHub Token？</h3>
-        <ol>
-            <li>访问 <a href="https://github.com/settings/tokens" target="_blank">GitHub Tokens 设置</a></li>
-            <li>点击 <b>Generate new token (classic)</b></li>
-            <li>Note 填写 <code>MarkLume Deploy</code></li>
-            <li>勾选 <b>repo</b> 全部权限</li>
-            <li>点击生成，<b>立即复制 Token</b>（只显示一次）</li>
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <!-- 标题 -->
+    <div class="text-center mb-10">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-2xl mb-4">
+            <i class="fab fa-github text-primary-600 text-3xl"></i>
+        </div>
+        <h1 class="text-3xl font-bold text-slate-800">部署到 GitHub Pages</h1>
+        <p class="mt-2 text-slate-500">一键将你的博客发布到全球</p>
+    </div>
+
+    <!-- 帮助信息 -->
+    <div class="bg-primary-50 border border-primary-100 rounded-2xl p-6 mb-6">
+        <h3 class="flex items-center gap-2 text-primary-800 font-semibold mb-3">
+            <i class="fas fa-info-circle"></i>
+            如何获取 GitHub Token？
+        </h3>
+        <ol class="text-primary-700 text-sm space-y-2 ml-5 list-decimal">
+            <li>访问 <a href="https://github.com/settings/tokens" target="_blank" class="underline hover:text-primary-900">GitHub Tokens 设置</a></li>
+            <li>点击 <strong>Generate new token (classic)</strong></li>
+            <li>Note 填写 <code class="bg-primary-100 px-1.5 py-0.5 rounded">MarkLume Deploy</code></li>
+            <li>勾选 <strong>repo</strong> 全部权限</li>
+            <li>点击生成，<strong>立即复制 Token</strong>（只显示一次）</li>
         </ol>
     </div>
 
-    <div class="alert warning">
-        ⚠️ 部署将强制推送至 <b>用户名.github.io</b> 仓库的 <b>main</b> 分支，原有内容将被完全覆盖。
-    </div>
-    <div class="alert warning">
-        ⚠️ 部署将强制推送至 <b>用户名.github.io</b> 仓库的 <b>main</b> 分支，原有内容将被完全覆盖。
-    </div>
-    <div class="alert warning">
-        ⚠️ 部署将强制推送至 <b>用户名.github.io</b> 仓库的 <b>main</b> 分支，原有内容将被完全覆盖。
+    <!-- 警告信息 -->
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-8 flex items-start gap-3">
+        <i class="fas fa-exclamation-triangle text-amber-500 mt-0.5"></i>
+        <p class="text-amber-700 text-sm">
+            部署将强制推送至 <strong>用户名.github.io</strong> 仓库的 <strong>main</strong> 分支，原有内容将被完全覆盖。
+        </p>
     </div>
 
-    <form id="deployForm">
-        <div class="form-group">
-            <label>站点标题</label>
-            <input type="text" name="site_title" value="My Blog" required>
+    <!-- 表单 -->
+    <form id="deployForm" class="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 sm:p-8">
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">站点标题</label>
+                <input type="text" 
+                       name="site_title" 
+                       value="My Blog" 
+                       required
+                       class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-transparent transition-all">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">GitHub Personal Access Token</label>
+                <input type="password" 
+                       name="github_token" 
+                       required 
+                       placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                       class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-transparent transition-all">
+                <p class="mt-2 text-xs text-slate-400">
+                    <i class="fas fa-lock mr-1"></i>Token 仅用于本次部署，不会保存
+                </p>
+            </div>
         </div>
-        <div class="form-group">
-            <label>GitHub Personal Access Token</label>
-            <input type="password" name="github_token" required placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
-            <small>Token 仅用于本次部署，不会保存</small>
-        </div>
-        <button type="submit" id="deployBtn">开始部署</button>
+        <button type="submit" 
+                id="deployBtn"
+                class="mt-8 w-full inline-flex items-center justify-center px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+            <i class="fas fa-rocket mr-2"></i>开始部署
+        </button>
     </form>
 
-    <div id="status" style="margin-top:20px; padding:10px; border:1px solid #ccc; display:none;">
-        <strong>状态：</strong> <span id="statusMsg"></span>
+    <!-- 状态显示 -->
+    <div id="status" class="mt-6 bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 hidden">
+        <div class="flex items-center gap-3">
+            <div id="status-icon" class="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                <i class="fas fa-spinner fa-spin text-primary-600"></i>
+            </div>
+            <div class="flex-1">
+                <h4 class="font-medium text-slate-800">部署状态</h4>
+                <p id="statusMsg" class="text-sm text-slate-500 mt-1">正在部署...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 返回按钮 -->
+    <div class="mt-8 text-center">
+        <a href="/" class="inline-flex items-center text-slate-500 hover:text-slate-700 transition-colors" hx-boost="true">
+            <i class="fas fa-arrow-left mr-2"></i>返回首页
+        </a>
     </div>
 </div>
 
@@ -52,13 +89,17 @@
     const form = document.getElementById('deployForm');
     const statusDiv = document.getElementById('status');
     const statusMsg = document.getElementById('statusMsg');
+    const statusIcon = document.getElementById('status-icon');
     const deployBtn = document.getElementById('deployBtn');
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         deployBtn.disabled = true;
-        statusDiv.style.display = 'block';
-        statusMsg.textContent = '正在部署...';
+        deployBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>部署中...';
+        statusDiv.classList.remove('hidden');
+        statusIcon.innerHTML = '<i class="fas fa-spinner fa-spin text-primary-600"></i>';
+        statusIcon.className = 'w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center';
+        statusMsg.textContent = '正在连接 GitHub...';
 
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
@@ -72,7 +113,10 @@
             const result = await res.json();
             if (result.error) {
                 statusMsg.textContent = result.error;
+                statusIcon.innerHTML = '<i class="fas fa-times text-red-600"></i>';
+                statusIcon.className = 'w-10 h-10 bg-red-100 rounded-full flex items-center justify-center';
                 deployBtn.disabled = false;
+                deployBtn.innerHTML = '<i class="fas fa-rocket mr-2"></i>重新部署';
             } else {
                 // 轮询状态
                 const poll = setInterval(async () => {
@@ -82,14 +126,26 @@
                     if (!status.running) {
                         clearInterval(poll);
                         deployBtn.disabled = false;
+                        deployBtn.innerHTML = '<i class="fas fa-rocket mr-2"></i>重新部署';
+                        
+                        // 根据结果更新图标
+                        if (status.message.includes('成功')) {
+                            statusIcon.innerHTML = '<i class="fas fa-check text-emerald-600"></i>';
+                            statusIcon.className = 'w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center';
+                        } else if (status.message.includes('失败')) {
+                            statusIcon.innerHTML = '<i class="fas fa-times text-red-600"></i>';
+                            statusIcon.className = 'w-10 h-10 bg-red-100 rounded-full flex items-center justify-center';
+                        }
                     }
                 }, 2000);
             }
         } catch (err) {
             statusMsg.textContent = '请求失败：' + err;
+            statusIcon.innerHTML = '<i class="fas fa-times text-red-600"></i>';
+            statusIcon.className = 'w-10 h-10 bg-red-100 rounded-full flex items-center justify-center';
             deployBtn.disabled = false;
+            deployBtn.innerHTML = '<i class="fas fa-rocket mr-2"></i>重新部署';
         }
     });
 </script>
-</body>
-</html>
+{% endblock %}
