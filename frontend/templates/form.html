@@ -1,167 +1,219 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css">
 
-    <form id="article-form"
-          {% if article %}hx-put="{{ action }}"{% else %}hx-post="{{ action }}"{% endif %}
-          hx-target="body" hx-swap="innerHTML">
-        {% if article %}<input type="hidden" name="article_id" value="{{ article.id }}">{% endif %}
+<form id="article-form"
+      {% if article %}hx-put="{{ action }}"{% else %}hx-post="{{ action }}"{% endif %}
+      hx-target="body" hx-swap="innerHTML">
+    {% if article %}<input type="hidden" name="article_id" value="{{ article.id }}">{% endif %}
 
-        <!-- 固定操作栏 -->
-        <div class="sticky top-16 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm">
-            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-                <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-                    <!-- 标题输入框现在在 form 内 -->
-                    <input type="text" id="title" name="title"
-                           value="{% if article %}{{ article.title }}{% endif %}"
-                           placeholder="文章标题"
-                           class="flex-1 text-xl font-bold text-slate-900 placeholder-slate-400 bg-transparent border-none outline-none focus:ring-0"
-                           required>
-                    <div class="flex items-center gap-2">
-                        <!-- 取消按钮是链接，不应提交表单 -->
-                        <a href="{% if article %}/articles/{{ article.id }}{% else %}/{% endif %}"
-                           class="inline-flex items-center px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
-                           hx-boost="true">取消</a>
-                        <button type="submit"
-                                class="inline-flex items-center px-6 py-2 rounded-full bg-primary-500 hover:bg-primary-600 text-white font-medium shadow-sm transition-colors">
-                            {% if article %}更新{% else %}发布{% endif %}
-                        </button>
-                    </div>
-                </div>
-
-                <!-- 自定义工具栏 -->
-                <div id="md-toolbar" class="flex flex-wrap items-center gap-1 py-1 border-t border-slate-100">
-                    <!-- JS 动态生成 -->
+    <!-- 固定操作栏 -->
+    <div class="sticky top-16 z-10 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-sm border-b border-neutral-200 dark:border-neutral-800">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                <!-- 标题输入 -->
+                <input type="text" id="title" name="title"
+                       value="{% if article %}{{ article.title }}{% endif %}"
+                       placeholder="文章标题"
+                       class="flex-1 text-2xl font-bold text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 bg-transparent border-none outline-none focus:ring-0"
+                       required>
+                <!-- 操作按钮 -->
+                <div class="flex items-center gap-3">
+                    <a href="{% if article %}/articles/{{ article.id }}{% else %}/{% endif %}"
+                       class="inline-flex items-center px-4 py-2 rounded-full text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-sm font-medium"
+                       hx-boost="true">
+                        取消
+                    </a>
+                    <button type="submit"
+                            class="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors text-sm font-medium">
+                        <i class="fas fa-paper-plane text-xs"></i>
+                        {% if article %}更新{% else %}发布{% endif %}
+                    </button>
                 </div>
             </div>
-        </div>
 
-        <!-- 编辑器主体 -->
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <textarea id="content" name="content">{% if article %}{{ article.content }}{% endif %}</textarea>
+            <!-- 工具栏 -->
+            <div id="md-toolbar" class="flex flex-wrap items-center gap-1 mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+                <!-- JS 动态生成 -->
             </div>
         </div>
-    </form>
+    </div>
 
-    <script>
-        (function () {
-            let easyMDEInstance = null;
+    <!-- 编辑器主体 -->
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+            <textarea id="content" name="content">{% if article %}{{ article.content }}{% endif %}</textarea>
+        </div>
+    </div>
+</form>
 
-            const toolbarActions = [
-                {icon: 'fa-bold', title: '加粗', action: 'toggleBold'},
-                {icon: 'fa-italic', title: '斜体', action: 'toggleItalic'},
-                {icon: 'fa-heading', title: '标题', action: 'toggleHeadingSmaller'},
-                {icon: 'fa-quote-right', title: '引用', action: 'toggleBlockquote'},
-                {icon: 'fa-list-ul', title: '无序列表', action: 'toggleUnorderedList'},
-                {icon: 'fa-list-ol', title: '有序列表', action: 'toggleOrderedList'},
-                {icon: 'fa-link', title: '链接', action: 'drawLink'},
-                {icon: 'fa-image', title: '图片', action: 'drawImage'},
-                {icon: 'fa-table', title: '表格', action: 'drawTable'},
-                {icon: 'fa-eye', title: '预览', action: 'togglePreview'},
-                {icon: 'fa-columns', title: '分屏预览', action: 'toggleSideBySide'},
-                {icon: 'fa-expand', title: '全屏', action: 'toggleFullScreen'},
-            ];
+<script>
+(function () {
+    let easyMDEInstance = null;
 
-            function buildToolbar() {
-                const toolbar = document.getElementById('md-toolbar');
-                if (!toolbar) return;
-                toolbar.innerHTML = '';
-                toolbarActions.forEach(item => {
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'p-2 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-colors';
-                    btn.title = item.title;
-                    btn.innerHTML = `<i class="fas ${item.icon}"></i>`;
-                    btn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        if (easyMDEInstance && typeof easyMDEInstance[item.action] === 'function') {
-                            easyMDEInstance[item.action]();
-                        }
-                    });
-                    toolbar.appendChild(btn);
-                });
+    const toolbarActions = [
+        {icon: 'fa-bold', title: '加粗', action: 'toggleBold'},
+        {icon: 'fa-italic', title: '斜体', action: 'toggleItalic'},
+        {icon: 'fa-strikethrough', title: '删除线', action: 'toggleStrikethrough'},
+        {icon: 'fa-heading', title: '标题', action: 'toggleHeadingSmaller'},
+        {sep: true},
+        {icon: 'fa-quote-right', title: '引用', action: 'toggleBlockquote'},
+        {icon: 'fa-code', title: '代码', action: 'toggleCodeBlock'},
+        {sep: true},
+        {icon: 'fa-list-ul', title: '无序列表', action: 'toggleUnorderedList'},
+        {icon: 'fa-list-ol', title: '有序列表', action: 'toggleOrderedList'},
+        {icon: 'fa-tasks', title: '任务列表', action: 'toggleTaskList'},
+        {sep: true},
+        {icon: 'fa-link', title: '链接', action: 'drawLink'},
+        {icon: 'fa-image', title: '图片', action: 'drawImage'},
+        {icon: 'fa-table', title: '表格', action: 'drawTable'},
+        {sep: true},
+        {icon: 'fa-eye', title: '预览', action: 'togglePreview'},
+        {icon: 'fa-columns', title: '分屏', action: 'toggleSideBySide'},
+        {icon: 'fa-expand', title: '全屏', action: 'toggleFullScreen'},
+    ];
+
+    function buildToolbar() {
+        const toolbar = document.getElementById('md-toolbar');
+        if (!toolbar) return;
+        toolbar.innerHTML = '';
+        
+        toolbarActions.forEach(item => {
+            if (item.sep) {
+                const sep = document.createElement('div');
+                sep.className = 'w-px h-5 bg-neutral-200 dark:bg-neutral-700 mx-1';
+                toolbar.appendChild(sep);
+                return;
             }
-
-            function initEditor(retries = 20) {
-                if (document.querySelector('.EasyMDEContainer')) {
-                    console.log('编辑器已存在，跳过');
-                    return;
-                }
-
-                const textarea = document.getElementById('content');
-                if (!textarea) {
-                    if (retries > 0) {
-                        setTimeout(() => initEditor(retries - 1), 100);
-                    } else {
-                        console.error('初始化编辑器失败：找不到 textarea#content');
-                    }
-                    return;
-                }
-
-                if (typeof EasyMDE === 'undefined') {
-                    console.error('EasyMDE 库未加载，请检查 base.html 中是否引入');
-                    return;
-                }
-
-                easyMDEInstance = new EasyMDE({
-                    element: textarea,
-                    autofocus: true,
-                    spellChecker: false,
-                    toolbar: false,
-                    status: false,
-                    placeholder: '开始用 Markdown 书写...',
-                    previewRender: function (plainText) {
-                        if (typeof marked !== 'undefined') return marked.parse(plainText);
-                        return plainText;
-                    }
-                });
-
-                buildToolbar();
-                console.log('✅ 编辑器初始化成功');
-
-                const defaultToolbar = document.querySelector('.editor-toolbar');
-                if (defaultToolbar) defaultToolbar.style.display = 'none';
-            }
-
-            // 初始化入口（与之前相同）
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => initEditor());
-            } else {
-                setTimeout(() => initEditor(), 50);
-            }
-
-            document.body.addEventListener('htmx:afterSettle', function handler() {
-                document.body.removeEventListener('htmx:afterSettle', handler);
-                initEditor();
-            });
-
-            // 在表单提交前手动同步 EasyMDE -> textarea
-            const form = document.getElementById('article-form');
-            form.addEventListener('htmx:configRequest', function () {
-                if (easyMDEInstance) {
-                    // 强制 EasyMDE 将当前编辑器内容写回隐藏的 textarea
-                    easyMDEInstance.toTextArea();
+            
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'w-9 h-9 flex items-center justify-center rounded-lg text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white transition-colors';
+            btn.title = item.title;
+            btn.innerHTML = `<i class="fas ${item.icon} text-sm"></i>`;
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (easyMDEInstance && typeof easyMDEInstance[item.action] === 'function') {
+                    easyMDEInstance[item.action]();
                 }
             });
-        })();
-    </script>
+            toolbar.appendChild(btn);
+        });
+    }
 
-    <style>
-        .editor-toolbar {
-            display: none !important;
+    function initEditor(retries = 20) {
+        if (document.querySelector('.EasyMDEContainer')) {
+            return;
         }
 
-        .EasyMDEContainer {
-            border: none !important;
-            box-shadow: none !important;
+        const textarea = document.getElementById('content');
+        if (!textarea) {
+            if (retries > 0) {
+                setTimeout(() => initEditor(retries - 1), 100);
+            }
+            return;
         }
 
-        .EasyMDEContainer .CodeMirror {
-            min-height: 60vh;
-            border-radius: 0.75rem;
-            border: none !important;
+        if (typeof EasyMDE === 'undefined') {
+            console.error('EasyMDE 库未加载');
+            return;
         }
-    </style>
+
+        easyMDEInstance = new EasyMDE({
+            element: textarea,
+            autofocus: true,
+            spellChecker: false,
+            toolbar: false,
+            status: false,
+            placeholder: '开始用 Markdown 书写...',
+            previewRender: function (plainText) {
+                if (typeof marked !== 'undefined') return marked.parse(plainText);
+                return plainText;
+            }
+        });
+
+        buildToolbar();
+
+        const defaultToolbar = document.querySelector('.editor-toolbar');
+        if (defaultToolbar) defaultToolbar.style.display = 'none';
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => initEditor());
+    } else {
+        setTimeout(() => initEditor(), 50);
+    }
+
+    document.body.addEventListener('htmx:afterSettle', function handler() {
+        document.body.removeEventListener('htmx:afterSettle', handler);
+        initEditor();
+    });
+
+    const form = document.getElementById('article-form');
+    form.addEventListener('htmx:configRequest', function () {
+        if (easyMDEInstance) {
+            easyMDEInstance.toTextArea();
+        }
+    });
+})();
+</script>
+
+<style>
+    .editor-toolbar {
+        display: none !important;
+    }
+
+    .EasyMDEContainer {
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    .EasyMDEContainer .CodeMirror {
+        min-height: 60vh;
+        border-radius: 0;
+        border: none !important;
+        background: transparent;
+        color: inherit;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        padding: 1.5rem;
+    }
+
+    .dark .EasyMDEContainer .CodeMirror {
+        background: transparent;
+        color: #e5e5e5;
+    }
+
+    .CodeMirror-cursor {
+        border-left-color: currentColor !important;
+    }
+
+    .dark .CodeMirror-cursor {
+        border-left-color: #fff !important;
+    }
+
+    .EasyMDEContainer .CodeMirror-scroll {
+        min-height: 60vh;
+    }
+
+    .editor-preview, .editor-preview-side {
+        background: #fff;
+        padding: 1.5rem;
+    }
+
+    .dark .editor-preview, .dark .editor-preview-side {
+        background: #171717;
+        color: #e5e5e5;
+    }
+
+    .editor-preview-active-side {
+        border-left: 1px solid #e5e5e5;
+    }
+
+    .dark .editor-preview-active-side {
+        border-left-color: #404040;
+    }
+</style>
 {% endblock %}

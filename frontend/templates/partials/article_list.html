@@ -1,33 +1,89 @@
 {% if articles %}
-<div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+<div class="grid gap-6 sm:gap-8">
     {% for article in articles %}
-    <article class="group bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden hover-lift fade-in">
-        <a href="/articles/{{ article.id }}" class="block p-6" hx-boost="true">
-            <!-- 标题 -->
-            <h3 class="text-xl font-semibold text-slate-800 group-hover:text-primary-600 transition-colors line-clamp-2">
-                {{ article.title }}
-            </h3>
-            <!-- 摘要（假设后端有 summary 属性，否则可截断 content 纯文本） -->
-            {% if article.summary %}
-            <p class="mt-3 text-slate-500 text-sm leading-relaxed line-clamp-3">
-                {{ article.summary }}
-            </p>
-            {% endif %}
-            <!-- 元信息 -->
-            <div class="mt-4 flex items-center text-xs text-slate-400">
-                <i class="far fa-calendar-alt mr-1.5"></i>
-                <time>{{ article.created_at.strftime('%Y-%m-%d') }}</time>
-                <span class="mx-2">·</span>
-                <i class="far fa-clock mr-1.5"></i>
-                <span>{{ article.updated_at.strftime('%Y-%m-%d') }}</span>
+    <article class="group animate-fade-in" style="animation-delay: {{ loop.index0 * 50 }}ms">
+        <a href="/articles/{{ article.id }}" class="block p-6 -mx-6 rounded-2xl hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors" hx-boost="true">
+            <div class="flex flex-col sm:flex-row sm:items-start gap-4">
+                <!-- 日期（桌面端左侧） -->
+                <div class="hidden sm:block sm:w-28 flex-shrink-0">
+                    <time class="text-sm text-neutral-400 dark:text-neutral-500 tabular-nums">
+                        {{ article.created_at.strftime('%Y-%m-%d') }}
+                    </time>
+                </div>
+                
+                <!-- 内容区 -->
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-lg font-semibold text-neutral-900 dark:text-white group-hover:text-neutral-600 dark:group-hover:text-neutral-300 transition-colors line-clamp-2">
+                        {{ article.title }}
+                    </h3>
+                    
+                    {% if article.summary %}
+                    <p class="mt-2 text-neutral-500 dark:text-neutral-400 text-sm leading-relaxed line-clamp-2">
+                        {{ article.summary }}
+                    </p>
+                    {% endif %}
+                    
+                    <!-- 移动端日期 -->
+                    <div class="mt-3 sm:hidden">
+                        <time class="text-xs text-neutral-400 dark:text-neutral-500 tabular-nums">
+                            {{ article.created_at.strftime('%Y-%m-%d') }}
+                        </time>
+                    </div>
+                </div>
+
+                <!-- 箭头 -->
+                <div class="hidden sm:flex items-center">
+                    <i class="fas fa-arrow-right text-neutral-300 dark:text-neutral-600 group-hover:text-neutral-500 dark:group-hover:text-neutral-400 group-hover:translate-x-1 transition-all"></i>
+                </div>
             </div>
         </a>
     </article>
     {% endfor %}
 </div>
+
+<!-- 分页 -->
+{% if pagination and pagination.total_pages > 1 %}
+<nav class="mt-12 flex items-center justify-center gap-2">
+    {% if pagination.has_prev %}
+    <a href="?page={{ pagination.page - 1 }}{% if pagination.search %}&search={{ pagination.search }}{% endif %}"
+       hx-get="/articles?page={{ pagination.page - 1 }}{% if pagination.search %}&search={{ pagination.search }}{% endif %}"
+       hx-target="#article-list"
+       hx-swap="innerHTML"
+       class="inline-flex items-center justify-center w-10 h-10 rounded-full text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+        <i class="fas fa-chevron-left text-sm"></i>
+    </a>
+    {% else %}
+    <span class="inline-flex items-center justify-center w-10 h-10 rounded-full text-neutral-300 dark:text-neutral-700 cursor-not-allowed">
+        <i class="fas fa-chevron-left text-sm"></i>
+    </span>
+    {% endif %}
+
+    <span class="px-4 text-sm text-neutral-500 dark:text-neutral-400 tabular-nums">
+        {{ pagination.page }} / {{ pagination.total_pages }}
+    </span>
+
+    {% if pagination.has_next %}
+    <a href="?page={{ pagination.page + 1 }}{% if pagination.search %}&search={{ pagination.search }}{% endif %}"
+       hx-get="/articles?page={{ pagination.page + 1 }}{% if pagination.search %}&search={{ pagination.search }}{% endif %}"
+       hx-target="#article-list"
+       hx-swap="innerHTML"
+       class="inline-flex items-center justify-center w-10 h-10 rounded-full text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+        <i class="fas fa-chevron-right text-sm"></i>
+    </a>
+    {% else %}
+    <span class="inline-flex items-center justify-center w-10 h-10 rounded-full text-neutral-300 dark:text-neutral-700 cursor-not-allowed">
+        <i class="fas fa-chevron-right text-sm"></i>
+    </span>
+    {% endif %}
+</nav>
+{% endif %}
+
 {% else %}
-<div class="text-center py-20 text-slate-400">
-    <i class="fas fa-inbox text-5xl mb-4"></i>
-    <p class="text-lg">暂无文章，静待墨香</p>
+<div class="text-center py-20">
+    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neutral-100 dark:bg-neutral-800 mb-4">
+        <i class="fas fa-feather text-2xl text-neutral-400 dark:text-neutral-500"></i>
+    </div>
+    <p class="text-neutral-500 dark:text-neutral-400">暂无文章</p>
+    <p class="text-sm text-neutral-400 dark:text-neutral-500 mt-1">开始写作，记录你的想法</p>
 </div>
 {% endif %}

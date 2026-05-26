@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <title>{{ SITE_TITLE }}</title>
+    <title>{{ site_title }}</title>
     <!-- HTMX -->
     <script crossorigin="anonymous"
             integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"
             src="https://unpkg.com/htmx.org@1.9.10"></script>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 在 tailwind 等之后添加 -->
+    <!-- Markdown & Code Highlight -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tocbot/4.25.0/tocbot.min.js" defer></script>
@@ -21,132 +21,210 @@
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap"
           rel="stylesheet">
+    
+    <!-- 主题初始化脚本（在 Tailwind 加载前执行） -->
+    <script>
+        (function() {
+            const theme = localStorage.getItem('theme') || 
+                (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.classList.toggle('dark', theme === 'dark');
+        })();
+    </script>
+    
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     fontFamily: {
                         sans: ['Inter', 'Noto Sans SC', 'system-ui', 'sans-serif'],
-                        display: ['Inter', 'Noto Sans SC', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
                     },
                     colors: {
-                        primary: {
-                            50: '#f0f9ff',
-                            100: '#e0f2fe',
-                            200: '#bae6fd',
-                            300: '#7dd3fc',
-                            400: '#38bdf8',
-                            500: '#0ea5e9',
-                            600: '#0284c7',
-                            700: '#0369a1',
-                            800: '#075985',
-                            900: '#0c4a6e',
-                        },
-                        accent: {
-                            50: '#fdf4ff',
-                            100: '#fae8ff',
-                            200: '#f5d0fe',
-                            300: '#f0abfc',
-                            400: '#e879f9',
-                            500: '#d946ef',
-                            600: '#c026d3',
-                            700: '#a21caf',
-                            800: '#86198f',
-                            900: '#701a75',
+                        // 深色主题使用的中性色
+                        neutral: {
+                            850: '#1f1f23',
+                            925: '#121214',
+                            950: '#09090b',
                         }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-out',
+                        'slide-up': 'slideUp 0.4s ease-out',
+                        'scale-in': 'scaleIn 0.2s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        scaleIn: {
+                            '0%': { opacity: '0', transform: 'scale(0.95)' },
+                            '100%': { opacity: '1', transform: 'scale(1)' },
+                        },
                     }
                 }
             }
         }
     </script>
     <style>
-        /* 全局平滑滚动与过渡 */
-        html {
-            scroll-behavior: smooth;
-        }
-
+        /* 全局样式 */
         body {
             font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
 
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #374151;
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+
         /* 卡片悬浮效果 */
-        .hover-lift {
+        .card-hover {
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-
-        .hover-lift:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.15);
+        .card-hover:hover {
+            transform: translateY(-2px);
         }
 
-        /* 淡入动画 */
-        .fade-in {
-            animation: fadeInUp 0.4s ease forwards;
+        /* 链接下划线动画 */
+        .link-underline {
+            position: relative;
+        }
+        .link-underline::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: currentColor;
+            transition: width 0.2s ease;
+        }
+        .link-underline:hover::after {
+            width: 100%;
         }
 
-        @keyframes fadeInUp {
+        /* 移动端菜单动画 */
+        .mobile-menu-enter {
+            animation: slideDown 0.3s ease-out;
+        }
+        @keyframes slideDown {
             from {
                 opacity: 0;
-                transform: translateY(12px);
+                transform: translateY(-10px);
             }
             to {
                 opacity: 1;
                 transform: translateY(0);
             }
         }
-
-        /* 自定义滚动条 */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 3px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+<body class="bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased min-h-screen flex flex-col transition-colors duration-300">
 
-<!-- 导航栏：毛玻璃效果 -->
-<nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/60 shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<!-- 导航栏 -->
+<nav class="sticky top-0 z-50 bg-white/80 dark:bg-neutral-950/80 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
-            <!-- Logo区域 -->
-            <a href="{{ site_link }}"
-               class="flex items-center gap-2 text-primary-600 hover:text-primary-700 transition-colors">
-                <div class="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center shadow-md">
-                    <i class="fas fa-feather-alt text-white text-sm"></i>
+            <!-- Logo -->
+            <a href="{{ site_link }}" class="flex items-center gap-3 group">
+                <div class="w-9 h-9 bg-neutral-900 dark:bg-white rounded-lg flex items-center justify-center transition-transform group-hover:scale-105">
+                    <span class="text-white dark:text-neutral-900 font-bold text-lg">M</span>
                 </div>
-                <span class="text-xl font-bold tracking-tight">{{ site_title }}</span>
+                <span class="text-lg font-semibold tracking-tight hidden sm:block">{{ site_title }}</span>
             </a>
 
-            <!-- 管理员操作区 -->
-            {% if is_admin %}
-                <div class="flex items-center gap-3">
-                    <a href="/articles/new"
-                       class="inline-flex items-center px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-full transition-all duration-200 shadow-md hover:shadow-lg"
-                       hx-boost="true">
-                        <i class="fas fa-pen-fancy mr-2"></i> 撰写
-                    </a>
-                    <a href="/admin/key"
-                       class="inline-flex items-center px-3 py-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-full text-sm transition-colors">
-                        <i class="fas fa-cog mr-1.5"></i> 管理
-                    </a>
-                </div>
-            {% endif %}
+            <!-- 桌面端导航 -->
+            <div class="hidden md:flex items-center gap-6">
+                <a href="/" class="text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors text-sm font-medium">
+                    文章
+                </a>
+                {% if is_admin %}
+                <a href="/deploy" class="text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors text-sm font-medium">
+                    部署
+                </a>
+                {% endif %}
+            </div>
+
+            <!-- 右侧操作区 -->
+            <div class="flex items-center gap-2">
+                <!-- 主题切换 -->
+                <button id="theme-toggle" 
+                        class="w-10 h-10 flex items-center justify-center rounded-full text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all"
+                        aria-label="切换主题">
+                    <i class="fas fa-sun text-lg dark:hidden"></i>
+                    <i class="fas fa-moon text-lg hidden dark:block"></i>
+                </button>
+
+                {% if is_admin %}
+                <!-- 写作按钮 -->
+                <a href="/articles/new"
+                   class="hidden sm:inline-flex items-center gap-2 px-4 py-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium rounded-full hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
+                   hx-boost="true">
+                    <i class="fas fa-plus text-xs"></i>
+                    <span>写文章</span>
+                </a>
+                <!-- 管理按钮 -->
+                <a href="/admin/key"
+                   class="w-10 h-10 flex items-center justify-center rounded-full text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all"
+                   title="管理">
+                    <i class="fas fa-cog"></i>
+                </a>
+                {% endif %}
+
+                <!-- 移动端菜单按钮 -->
+                <button id="mobile-menu-btn" 
+                        class="md:hidden w-10 h-10 flex items-center justify-center rounded-full text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all"
+                        aria-label="菜单">
+                    <i class="fas fa-bars text-lg" id="menu-icon-open"></i>
+                    <i class="fas fa-times text-lg hidden" id="menu-icon-close"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 移动端菜单 -->
+        <div id="mobile-menu" class="hidden md:hidden pb-4 mobile-menu-enter">
+            <div class="flex flex-col gap-1 pt-2 border-t border-neutral-200 dark:border-neutral-800">
+                <a href="/" class="px-4 py-3 rounded-lg text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-sm font-medium">
+                    <i class="fas fa-newspaper mr-3 w-4"></i>文章
+                </a>
+                {% if is_admin %}
+                <a href="/deploy" class="px-4 py-3 rounded-lg text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-sm font-medium">
+                    <i class="fas fa-rocket mr-3 w-4"></i>部署
+                </a>
+                <a href="/articles/new" class="px-4 py-3 rounded-lg text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-sm font-medium">
+                    <i class="fas fa-plus mr-3 w-4"></i>写文章
+                </a>
+                <a href="/admin/key" class="px-4 py-3 rounded-lg text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors text-sm font-medium">
+                    <i class="fas fa-cog mr-3 w-4"></i>管理
+                </a>
+                {% endif %}
+            </div>
         </div>
     </div>
 </nav>
@@ -156,59 +234,55 @@
     {% block content %}{% endblock %}
 </main>
 
-<!-- 页脚：精致简约 -->
-<footer class="bg-white border-t border-slate-200/70 mt-12">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<!-- 页脚 -->
+<footer class="border-t border-neutral-200 dark:border-neutral-800 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div class="flex items-center gap-2 text-slate-500 text-sm">
-                <i class="fas fa-code text-primary-400"></i>
-                <span>由 <span class="font-semibold text-slate-700">FastAPI</span> + <span
-                        class="font-semibold text-slate-700">HTMX</span> + <span class="font-semibold text-slate-700">Tailwind CSS</span> 驱动</span>
+            <div class="flex items-center gap-2 text-neutral-500 dark:text-neutral-500 text-sm">
+                <span>Built with</span>
+                <span class="font-medium text-neutral-700 dark:text-neutral-300">FastAPI</span>
+                <span class="text-neutral-300 dark:text-neutral-600">+</span>
+                <span class="font-medium text-neutral-700 dark:text-neutral-300">HTMX</span>
             </div>
             <div class="flex items-center gap-4">
-                <a href="#" class="text-slate-400 hover:text-primary-500 transition-colors text-lg">
-                    <i class="fab fa-github"></i>
+                <a href="https://github.com" target="_blank" class="text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">
+                    <i class="fab fa-github text-lg"></i>
                 </a>
-                <a href="#" class="text-slate-400 hover:text-primary-500 transition-colors text-lg">
-                    <i class="fab fa-twitter"></i>
-                </a>
-                <a href="#" class="text-slate-400 hover:text-primary-500 transition-colors text-lg">
-                    <i class="fab fa-linkedin-in"></i>
+                <a href="https://twitter.com" target="_blank" class="text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">
+                    <i class="fab fa-twitter text-lg"></i>
                 </a>
             </div>
         </div>
-        <div class="mt-6 pt-4 border-t border-slate-100 text-center text-xs text-slate-400">
-            © {{ now().year if now else '2025' }} MarkLume · 简约不简单
+        <div class="mt-6 pt-6 border-t border-neutral-100 dark:border-neutral-800 text-center text-xs text-neutral-400 dark:text-neutral-600">
+            &copy; {{ current_year }} {{ site_title }}
         </div>
     </div>
 </footer>
 
-<!-- Toast 通知：更柔和的样式 -->
+<!-- Toast 通知 -->
 <div id="toast"
-     class="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 shadow-xl rounded-2xl text-slate-700 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
-    <i class="fas fa-check-circle text-emerald-500 text-lg"></i>
+     class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-2xl rounded-xl transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+    <i class="fas fa-check-circle text-emerald-400 dark:text-emerald-600"></i>
     <span id="toast-message" class="text-sm font-medium">操作成功</span>
 </div>
 
 <!-- 删除确认弹窗 -->
 <div id="delete-modal" class="fixed inset-0 z-50 hidden">
-    <!-- 背景遮罩 -->
-    <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="hideDeleteModal()"></div>
-    <!-- 弹窗内容 -->
+    <div class="fixed inset-0 bg-black/50 backdrop-blur-sm" onclick="hideDeleteModal()"></div>
     <div class="fixed inset-0 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform scale-95 opacity-0 transition-all duration-200" id="delete-modal-content">
+        <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl max-w-md w-full p-6 transform scale-95 opacity-0 transition-all duration-200 border border-neutral-200 dark:border-neutral-800" id="delete-modal-content">
             <div class="flex items-center gap-4 mb-4">
-                <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                    <i class="fas fa-exclamation-triangle text-red-500 text-xl"></i>
+                <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                    <i class="fas fa-trash text-red-500 dark:text-red-400 text-xl"></i>
                 </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-slate-800">确认删除</h3>
-                    <p class="text-sm text-slate-500">此操作不可撤销</p>
+                    <h3 class="text-lg font-semibold text-neutral-900 dark:text-white">确认删除</h3>
+                    <p class="text-sm text-neutral-500 dark:text-neutral-400">此操作不可撤销</p>
                 </div>
             </div>
-            <p class="text-slate-600 mb-6" id="delete-modal-message">确定要删除这篇文章吗？</p>
+            <p class="text-neutral-600 dark:text-neutral-300 mb-6" id="delete-modal-message">确定要删除这篇文章吗？</p>
             <div class="flex justify-end gap-3">
-                <button onclick="hideDeleteModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors">
+                <button onclick="hideDeleteModal()" class="px-4 py-2 text-sm font-medium text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors">
                     取消
                 </button>
                 <button id="delete-confirm-btn" class="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors">
@@ -220,13 +294,40 @@
 </div>
 
 <script>
-    // 显示 Toast
-    function showToast(message) {
+    // 主题切换
+    const themeToggle = document.getElementById('theme-toggle');
+    themeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
+
+    // 移动端菜单
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const mobileMenu = document.getElementById('mobile-menu');
+    const menuIconOpen = document.getElementById('menu-icon-open');
+    const menuIconClose = document.getElementById('menu-icon-close');
+
+    mobileMenuBtn.addEventListener('click', () => {
+        const isOpen = mobileMenu.classList.toggle('hidden');
+        menuIconOpen.classList.toggle('hidden', !isOpen);
+        menuIconClose.classList.toggle('hidden', isOpen);
+    });
+
+    // Toast 通知
+    function showToast(message, type = 'success') {
         const toast = document.getElementById('toast');
         const toastMessage = document.getElementById('toast-message');
+        const icon = toast.querySelector('i');
+        
         if (!toast || !toastMessage) return;
 
         toastMessage.textContent = message;
+        
+        // 更新图标
+        icon.className = type === 'success' 
+            ? 'fas fa-check-circle text-emerald-400 dark:text-emerald-600'
+            : 'fas fa-exclamation-circle text-red-400 dark:text-red-600';
+
         toast.classList.remove('translate-y-24', 'opacity-0');
         toast.classList.add('translate-y-0', 'opacity-100');
 
@@ -281,7 +382,7 @@
         }
     });
 
-    // 监听 HTMX 事件
+    // HTMX 事件监听
     document.body.addEventListener('htmx:afterSwap', function (evt) {
         if (evt.detail.requestConfig.path.includes('/articles') &&
             (evt.detail.requestConfig.verb === 'post' || evt.detail.requestConfig.verb === 'put')) {

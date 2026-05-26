@@ -1,49 +1,105 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <link href="/static/css/style.css"/>
-    <main class="container">
-        <section class="admin-section">
-            <h2>管理员密钥管理</h2>
+<div class="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+    <!-- 头部 -->
+    <header class="text-center mb-10">
+        <div class="inline-flex items-center justify-center w-14 h-14 bg-neutral-100 dark:bg-neutral-800 rounded-2xl mb-4">
+            <i class="fas fa-key text-2xl text-neutral-700 dark:text-neutral-300"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-neutral-900 dark:text-white">管理员设置</h1>
+        <p class="mt-2 text-neutral-500 dark:text-neutral-400">管理你的博客权限</p>
+    </header>
 
-            {% if error %}
-                <div class="alert alert-danger">{{ error }}</div>
-            {% endif %}
+    <!-- 错误提示 -->
+    {% if error %}
+    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-2xl p-4 mb-6 flex items-start gap-3">
+        <i class="fas fa-exclamation-circle text-red-500 dark:text-red-400 mt-0.5"></i>
+        <p class="text-red-700 dark:text-red-300 text-sm">{{ error }}</p>
+    </div>
+    {% endif %}
 
-            {# 刷新密钥后展示新密钥（仅一次） #}
-            {% if new_key %}
-                <div class="alert alert-success">
-                    <strong>密钥已刷新，请立即复制保存：</strong>
-                    <code class="key-display">{{ new_key }}</code>
+    <!-- 新密钥显示 -->
+    {% if new_key %}
+    <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl p-5 mb-6">
+        <div class="flex items-start gap-3">
+            <i class="fas fa-check-circle text-emerald-500 dark:text-emerald-400 mt-0.5"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-emerald-700 dark:text-emerald-300 font-medium mb-2">密钥已刷新，请立即复制保存：</p>
+                <div class="bg-white dark:bg-neutral-900 rounded-xl p-3 border border-emerald-200 dark:border-emerald-800/50">
+                    <code class="text-sm text-neutral-900 dark:text-white font-mono break-all select-all">{{ new_key }}</code>
                 </div>
-            {% endif %}
-
-            <div class="key-info">
-                <p>管理员密钥已持久化保存，重启服务器不会丢失。</p>
-                <p class="note">如需更换密钥，请在登录后使用“刷新密钥”功能。</p>
             </div>
+        </div>
+    </div>
+    {% endif %}
 
-            <form action="/admin/login" class="key-form" method="post">
-                <div class="form-group">
-                    <label for="key-input">输入密钥以激活管理员权限：</label>
-                    <input class="key-display" id="key-input" name="key" placeholder="粘贴管理员密钥" required
-                           type="password">
-                </div>
-                <button class="btn" type="submit">激活管理员权限</button>
+    <!-- 信息卡片 -->
+    <div class="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 mb-6">
+        <div class="flex items-start gap-3">
+            <i class="fas fa-info-circle text-neutral-400 dark:text-neutral-500 mt-0.5"></i>
+            <div class="text-sm text-neutral-600 dark:text-neutral-400">
+                <p>管理员密钥已持久化保存，重启服务器不会丢失。</p>
+                <p class="mt-1 text-neutral-500 dark:text-neutral-500">如需更换密钥，请在登录后使用「刷新密钥」功能。</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录表单 -->
+    <form action="/admin/login" method="post" class="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6">
+        <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3">
+            输入密钥以激活管理员权限
+        </label>
+        <input type="password" 
+               name="key" 
+               required 
+               placeholder="粘贴管理员密钥"
+               class="w-full px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all font-mono text-sm">
+        <button type="submit" 
+                class="mt-4 w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-medium rounded-xl hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors">
+            <i class="fas fa-unlock"></i>
+            <span>激活权限</span>
+        </button>
+    </form>
+
+    <!-- 已登录状态 -->
+    {% if is_admin %}
+    <div class="mt-6 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
+                <i class="fas fa-shield-alt text-emerald-500 dark:text-emerald-400"></i>
+            </div>
+            <div>
+                <p class="font-medium text-neutral-900 dark:text-white">管理员权限已激活</p>
+                <p class="text-xs text-neutral-500 dark:text-neutral-400">长期有效</p>
+            </div>
+        </div>
+        
+        <div class="space-y-3 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+            <form action="/admin/refresh-key" method="post">
+                <button type="submit" 
+                        class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-medium rounded-xl hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors text-sm">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>刷新管理员密钥</span>
+                </button>
             </form>
+            <form action="/admin/logout" method="post">
+                <button type="submit" 
+                        class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 font-medium rounded-xl hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors text-sm">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>退出管理员</span>
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
 
-            {% if is_admin %}
-                <div class="admin-actions">
-                    {# 刷新密钥按钮 #}
-                    <form action="/admin/refresh-key" method="post" style="margin-bottom: 1em;">
-                        <button class="btn btn-warning" type="submit">刷新管理员密钥</button>
-                    </form>
-                    <form action="/admin/logout" method="post">
-                        <button class="btn btn-logout" type="submit">退出管理员</button>
-                    </form>
-                    <p class="status">管理员权限已激活（长期有效）</p>
-                </div>
-            {% endif %}
-        </section>
-    </main>
+    <!-- 返回 -->
+    <div class="mt-8 text-center">
+        <a href="/" class="inline-flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors" hx-boost="true">
+            <i class="fas fa-arrow-left text-xs"></i>
+            <span>返回首页</span>
+        </a>
+    </div>
+</div>
 {% endblock %}
