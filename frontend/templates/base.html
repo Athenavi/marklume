@@ -73,7 +73,10 @@
             }
         }
     </script>
-    <style>
+    <style type="text/tailwindcss">
+        /* 强制 class-based dark mode（兼容 Tailwind CDN v4） */
+        @custom-variant dark (&:where(.dark, .dark *));
+
         /* 全局样式 */
         body {
             font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
@@ -174,11 +177,11 @@
             <!-- 右侧操作区 -->
             <div class="flex items-center gap-2">
                 <!-- 主题切换 -->
-                <button id="theme-toggle" 
+                <button id="theme-toggle"
                         class="w-10 h-10 flex items-center justify-center rounded-full text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all"
                         aria-label="切换主题">
-                    <i class="fas fa-sun text-lg dark:hidden"></i>
-                    <i class="fas fa-moon text-lg hidden dark:block"></i>
+                    <i data-theme-icon="light" class="fas fa-sun text-lg"></i>
+                    <i data-theme-icon="dark" class="fas fa-moon text-lg" style="display:none"></i>
                 </button>
 
                 {% if is_admin %}
@@ -295,11 +298,20 @@
 
 <script>
     // 主题切换
+    function setThemeIcons(isDark) {
+        document.querySelectorAll('[data-theme-icon="light"]').forEach(el => el.style.display = isDark ? 'none' : '');
+        document.querySelectorAll('[data-theme-icon="dark"]').forEach(el => el.style.display = isDark ? '' : 'none');
+    }
+
     const themeToggle = document.getElementById('theme-toggle');
     themeToggle.addEventListener('click', () => {
         const isDark = document.documentElement.classList.toggle('dark');
         localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        setThemeIcons(isDark);
     });
+
+    // 初始化图标状态
+    setThemeIcons(document.documentElement.classList.contains('dark'));
 
     // 移动端菜单
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
