@@ -56,7 +56,7 @@
         </div>
     </div>
 
-    <!-- 文章列表 -->
+    <!-- 文章列表（按分类分组） -->
     <div id="article-list">
         {% include "partials/article_list.html" %}
     </div>
@@ -87,6 +87,17 @@
             const match = !query || title.indexOf(query) !== -1;
             article.style.display = match ? '' : 'none';
             if (match) visibleCount++;
+        });
+
+        // 隐藏空分类组（当该分类下所有文章都被隐藏时）
+        var categoryGroups = articleList.querySelectorAll('.category-group');
+        categoryGroups.forEach(function(group) {
+            var groupArticles = group.querySelectorAll('article[data-title]');
+            var groupVisible = 0;
+            groupArticles.forEach(function(a) {
+                if (a.style.display !== 'none') groupVisible++;
+            });
+            group.style.display = groupVisible === 0 && query ? 'none' : '';
         });
 
         // 显示/隐藏分页

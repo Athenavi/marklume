@@ -1,7 +1,9 @@
 import logging
+import os
 import re
 import shutil
 import tempfile
+from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -109,20 +111,41 @@ def generate_static_site(
     if STATIC_DIR.exists():
         shutil.copytree(STATIC_DIR, output_dir / "static", dirs_exist_ok=True)
 
-    # 加载文章
+    # 加载文章（递归扫描子目录，支持分类）
     articles = []
+    categories = OrderedDict()
     if ARCHIVE_DIR.exists():
-        for idx, md_file in enumerate(sorted(ARCHIVE_DIR.glob("*.md")), start=1):
+        for idx, md_file in enumerate(sorted(ARCHIVE_DIR.glob("**/*.md")), start=1):
             title = md_file.stem
             raw_content = md_file.read_text(encoding="utf-8")
             stat = md_file.stat()
-            articles.append({
+            
+            # 提取分类：从 archive 的相对路径中获取第一级子目录名
+            rel_path = md_file.relative_to(ARCHIVE_DIR)
+            parts = list(rel_path.parts)
+            category = parts[0] if len(parts) > 1 else ""
+            
+            # 分类 URL
+            if category:
+                category_url = f"/cate/{category}/{idx}"
+            else:
+                category_url = f"/articles/{idx}"
+            
+            art = {
                 "id": idx,
                 "title": title,
                 "content": raw_content,
                 "created_at": datetime.fromtimestamp(stat.st_ctime),
                 "updated_at": datetime.fromtimestamp(stat.st_mtime),
-            })
+                "category": category,
+                "category_url": category_url,
+            }
+            articles.append(art)
+            
+            # 按分类分组
+            if category not in categories:
+                categories[category] = []
+            categories[category].append(art)
 
     # 加载自定义页面
     pages = _load_pages()
@@ -147,20 +170,25 @@ def generate_static_site(
 
     fake_request = FakeRequest()
 
-    # 首页
+    # 首页（传入分类分组数据）
     index_template = env.get_template("index.html")
     index_html = index_template.render(
-        request=fake_request, articles=articles, pages=pages, is_admin=False
+        request=fake_request, articles=articles, categories=categories, pages=pages, is_admin=False
     )
     (output_dir / "index.html").write_text(index_html, encoding="utf-8")
 
-    # 文章页
-    art_dir = output_dir / "articles"
-    art_dir.mkdir(exist_ok=True)
+    # 文章页（按分类生成目录结构）
     article_template = env.get_template("article.html")
     for art in articles:
         art_html = article_template.render(request=fake_request, article=art, is_admin=False)
-        (art_dir / f"{art['id']}.html").write_text(art_html, encoding="utf-8")
+        if art["category"]:
+            # 有分类：cate/{catename}/{id}.html
+            art_out_dir = output_dir / "cate" / art["category"]
+        else:
+            # 无分类：articles/{id}.html（保持兼容）
+            art_out_dir = output_dir / "articles"
+        art_out_dir.mkdir(parents=True, exist_ok=True)
+        (art_out_dir / f"{art['id']}.html").write_text(art_html, encoding="utf-8")
 
     logger.info(f"静态站点已生成：{output_dir}")
     

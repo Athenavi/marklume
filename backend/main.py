@@ -22,6 +22,7 @@ from .database import (
     init_archive,
     cleanup_cache,
     get_articles,
+    get_categories,
     create_new_article,
     get_article,
     delete_article_db,
@@ -80,6 +81,10 @@ def validate_admin_key(admin_key: str = Depends(admin_key_scheme)):
 # ---------- 异步数据库包装（避免阻塞事件循环） ----------
 async def fetch_articles():
     return await asyncio.to_thread(get_articles)
+
+
+async def fetch_categories():
+    return await asyncio.to_thread(get_categories)
 
 
 async def fetch_article(article_id: int):
@@ -166,8 +171,9 @@ async def get_article_form_data(request: Request):
 @app.get("/articles")
 async def list_articles(request: Request):
     articles = await fetch_articles()
+    categories = await fetch_categories()
     pages = _load_pages()
-    return render_template("index.html", request, articles=articles, pages=pages)
+    return render_template("index.html", request, articles=articles, categories=categories, pages=pages)
 
 
 @app.get("/articles/new")
@@ -179,6 +185,14 @@ async def new_article_form(request: Request, _: str = Depends(validate_admin_key
 async def read_article(article_id: int, request: Request):
     article = await fetch_article(article_id)
     if not article:
+        raise HTTPException(status_code=404)
+    return render_template("article.html", request, article=article)
+
+
+@app.get("/cate/{catename}/{article_id}")
+async def read_article_by_category(catename: str, article_id: int, request: Request):
+    article = await fetch_article(article_id)
+    if not article or article.category != catename:
         raise HTTPException(status_code=404)
     return render_template("article.html", request, article=article)
 
@@ -224,7 +238,8 @@ async def remove_article_route(
 ):
     await remove_article(article_id)
     articles = await fetch_articles()
-    return render_template("partials/article_list.html", request, articles=articles)
+    categories = await fetch_categories()
+    return render_template("partials/article_list.html", request, articles=articles, categories=categories)
 
 
 # ---------- 管理员密钥页面 ----------

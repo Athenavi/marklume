@@ -1,8 +1,60 @@
-{% if articles %}
+{% if categories is defined and categories %}
+{% for cat_name, cat_articles in categories.items() %}
+<div class="category-group mb-10" data-category="{{ cat_name }}">
+    <h3 class="flex items-center gap-2 text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-4">
+        <i class="fas fa-folder text-neutral-400 dark:text-neutral-500 text-xs"></i>
+        {{ cat_name if cat_name else "未分类" }}
+        <span class="text-xs font-normal text-neutral-400 dark:text-neutral-500">({{ cat_articles|length }})</span>
+    </h3>
+    <div class="grid gap-6 sm:gap-8">
+        {% for article in cat_articles %}
+        <article class="group animate-fade-in" style="animation-delay: {{ loop.index0 * 50 }}ms" data-title="{{ article.title }}">
+            <a href="{{ article.category_url }}" class="block p-6 -mx-6 rounded-2xl hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors" hx-boost="true">
+                <div class="flex flex-col sm:flex-row sm:items-start gap-4">
+                    <!-- 日期（桌面端左侧） -->
+                    <div class="hidden sm:block sm:w-28 flex-shrink-0">
+                        <time class="text-sm text-neutral-400 dark:text-neutral-500 tabular-nums">
+                            {{ article.created_at.strftime('%Y-%m-%d') }}
+                        </time>
+                    </div>
+                    
+                    <!-- 内容区 -->
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-lg font-semibold text-neutral-900 dark:text-white group-hover:text-neutral-600 dark:group-hover:text-neutral-300 transition-colors line-clamp-2">
+                            {{ article.title }}
+                        </h3>
+                        
+                        {% if article.summary %}
+                        <p class="mt-2 text-neutral-500 dark:text-neutral-400 text-sm leading-relaxed line-clamp-2">
+                            {{ article.summary }}
+                        </p>
+                        {% endif %}
+                        
+                        <!-- 移动端日期 -->
+                        <div class="mt-3 sm:hidden">
+                            <time class="text-xs text-neutral-400 dark:text-neutral-500 tabular-nums">
+                                {{ article.created_at.strftime('%Y-%m-%d') }}
+                            </time>
+                        </div>
+                    </div>
+
+                    <!-- 箭头 -->
+                    <div class="hidden sm:flex items-center">
+                        <i class="fas fa-arrow-right text-neutral-300 dark:text-neutral-600 group-hover:text-neutral-500 dark:group-hover:text-neutral-400 group-hover:translate-x-1 transition-all"></i>
+                    </div>
+                </div>
+            </a>
+        </article>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+{% elif articles %}
 <div class="grid gap-6 sm:gap-8">
     {% for article in articles %}
     <article class="group animate-fade-in" style="animation-delay: {{ loop.index0 * 50 }}ms" data-title="{{ article.title }}">
-        <a href="/articles/{{ article.id }}" class="block p-6 -mx-6 rounded-2xl hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors" hx-boost="true">
+        <a href="{{ article.category_url }}" class="block p-6 -mx-6 rounded-2xl hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors" hx-boost="true">
             <div class="flex flex-col sm:flex-row sm:items-start gap-4">
                 <!-- 日期（桌面端左侧） -->
                 <div class="hidden sm:block sm:w-28 flex-shrink-0">
