@@ -1,4 +1,5 @@
 import logging
+import re
 import shutil
 import tempfile
 from datetime import datetime
@@ -27,8 +28,10 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).parent.parent
 ARCHIVE_DIR = BASE_DIR / "archive"
+PAGES_DIR = BASE_DIR / "pages"
 TEMPLATES_DIR = BASE_DIR / "frontend" / "templates"
 STATIC_DIR = BASE_DIR / "frontend" / "static"
+CLONE_CACHE_DIR = BASE_DIR / ".cache" / "clone"
 
 
 def get_github_username(token: str) -> str:
@@ -38,6 +41,49 @@ def get_github_username(token: str) -> str:
     if resp.status_code != 200:
         raise RuntimeError("无法获取 GitHub 用户信息，请检查 Token 是否有效。")
     return resp.json()["login"]
+
+
+def _extract_html_title(html_path: Path) -> str:
+    """
+    从 HTML 文件中提取 <title> 标签内容
+    
+    Args:
+        html_path: HTML 文件路径
+    
+    Returns:
+        title 内容，提取失败时返回文件名（不含扩展名）
+    """
+    try:
+        content = html_path.read_text(encoding="utf-8")
+        match = re.search(r'<title>(.*?)</title>', content, re.IGNORECASE | re.DOTALL)
+        if match:
+            return match.group(1).strip()
+    except Exception as e:
+        logger.warning(f"读取 HTML 文件失败 {html_path}: {e}")
+    return html_path.stem
+
+
+def _load_pages() -> list[dict]:
+    """
+    扫描 pages 目录，加载所有 HTML 页面信息
+    
+    Returns:
+        页面信息列表，每项包含 filename 和 title
+    """
+    pages = []
+    if not PAGES_DIR.exists():
+        return pages
+    
+    for html_file in sorted(PAGES_DIR.glob("*.html")):
+        title = _extract_html_title(html_file)
+        pages.append({
+            "filename": html_file.name,
+            "title": title,
+        })
+        logger.debug(f"发现页面: {html_file.name} -> {title}")
+    
+    logger.info(f"加载了 {len(pages)} 个自定义页面")
+    return pages
 
 
 def generate_static_site(
@@ -80,6 +126,18 @@ def generate_static_site(
                 "updated_at": datetime.fromtimestamp(stat.st_mtime),
             })
 
+    # 加载自定义页面
+    pages = _load_pages()
+    
+    # 复制 pages 目录下的 HTML 文件到输出目录
+    if pages:
+        pages_out_dir = output_dir / "pages"
+        pages_out_dir.mkdir(exist_ok=True)
+        for page in pages:
+            src = PAGES_DIR / page["filename"]
+            shutil.copy2(src, pages_out_dir / page["filename"])
+        logger.info(f"已复制 {len(pages)} 个自定义页面到站点")
+
     # 模板引擎
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
     env.globals["site_title"] = site_title
@@ -93,7 +151,9 @@ def generate_static_site(
 
     # 首页
     index_template = env.get_template("index.html")
-    index_html = index_template.render(request=fake_request, articles=articles, is_admin=False)
+    index_html = index_template.render(
+        request=fake_request, articles=articles, pages=pages, is_admin=False
+    )
     (output_dir / "index.html").write_text(index_html, encoding="utf-8")
 
     # 文章页
@@ -231,6 +291,58 @@ def prepare_incremental_deploy(
     return repo_full_name, diff
 
 
+def _get_or_create_clone_dir(github_token: str, repo_full_name: str, branch: str) -> tuple[Repo, Path]:
+    """
+    获取或创建本地克隆缓存目录
+    
+    如果缓存目录已存在，则执行 git pull 拉取最新代码；
+    否则克隆远程仓库。
+    
+    Args:
+        github_token: GitHub Token
+        repo_full_name: 仓库全名 (user/repo)
+        branch: 目标分支
+    
+    Returns:
+        (Repo 对象, 克隆目录路径)
+    """
+    repo_url = f"https://{github_token}@github.com/{repo_full_name}.git"
+    clone_dir = CLONE_CACHE_DIR / repo_full_name.replace("/", "_")
+    
+    if clone_dir.exists() and (clone_dir / ".git").exists():
+        # 缓存目录已存在，pull 最新代码
+        repo = Repo(clone_dir)
+        try:
+            # 确保 remote URL 包含最新的 token
+            repo.git.remote("set-url", "origin", repo_url)
+            repo.git.fetch("origin", branch)
+            repo.git.checkout(branch)
+            repo.git.pull("origin", branch)
+            logger.info(f"已从远程拉取最新代码到缓存目录")
+        except GitCommandError as e:
+            logger.warning(f"拉取远程代码失败，尝试继续使用本地缓存: {e}")
+            try:
+                repo.git.checkout(branch)
+            except GitCommandError:
+                pass
+    else:
+        # 克隆远程仓库
+        clone_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            repo = Repo.clone_from(repo_url, clone_dir, branch=branch)
+            logger.info(f"已克隆远程仓库 {repo_full_name} 的 {branch} 分支到缓存目录")
+        except GitCommandError:
+            # 仓库为空（刚创建），本地初始化并关联远程
+            logger.info(f"远程仓库为空，本地初始化缓存目录")
+            repo = Repo.init(clone_dir)
+            repo.create_remote("origin", repo_url)
+    
+    repo.config_writer().set_value("user", "name", "MarkLume Deployer").release()
+    repo.config_writer().set_value("user", "email", "deployer@marklume.local").release()
+    
+    return repo, clone_dir
+
+
 def push_to_github_incremental(
     site_dir: Path,
     github_token: str,
@@ -241,11 +353,12 @@ def push_to_github_incremental(
     增量部署到 GitHub
     
     根据 diff 结果，仅提交变化的文件：
-    - 新增/修改的文件：git add
-    - 删除的文件：git rm（如果存在于远程）
+    - 使用本地缓存的克隆目录（如果存在则 pull，否则 clone）
+    - 新增/修改的文件：复制到克隆目录后 git add
+    - 删除的文件：git rm
     
     Args:
-        site_dir: 站点目录
+        site_dir: 生成好的站点目录（含全部文件）
         github_token: GitHub Token
         diff: 差异结果
         branch: 目标分支
@@ -270,46 +383,42 @@ def push_to_github_incremental(
             "changes": diff.to_dict()
         }
     
-    # 初始化 Git 仓库
-    repo_url = f"https://{github_token}@github.com/{repo_full_name}.git"
-    repo = Repo.init(site_dir)
-    repo.config_writer().set_value("user", "name", "MarkLume Deployer").release()
-    repo.config_writer().set_value("user", "email", "deployer@marklume.local").release()
+    # 获取或创建本地克隆缓存（pull 最新代码而非重新 clone）
+    repo, clone_dir = _get_or_create_clone_dir(github_token, repo_full_name, branch)
     
-    # 尝试拉取远程分支（如果存在）
-    try:
-        repo.git.fetch(repo_url, branch)
-        repo.git.checkout(f"FETCH_HEAD", b=branch)
-        logger.info(f"已检出远程分支 {branch}")
-    except GitCommandError:
-        # 远程分支不存在，创建新分支
-        logger.info(f"远程分支 {branch} 不存在，将创建新分支")
-    
-    # 添加变更文件
     changed_files = []
     
-    # 添加新增和修改的文件
+    # 复制新增和修改的文件到克隆目录，然后 git add
     for change in diff.added + diff.modified:
-        file_path = Path(site_dir) / change.path
-        if file_path.exists():
+        src_file = site_dir / change.path
+        dst_file = clone_dir / change.path
+        if src_file.exists():
+            dst_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_file, dst_file)
             repo.git.add(change.path)
-            changed_files.append(f"A {change.path}" if change.change_type.value == "added" else f"M {change.path}")
+            changed_files.append(
+                f"+{change.path}" if change.change_type.value == "added" else f"~{change.path}"
+            )
     
-    # 始终添加 manifest 文件
-    manifest_path = Path(site_dir) / MANIFEST_FILENAME
-    if manifest_path.exists():
+    # 复制并添加 manifest 文件
+    manifest_src = site_dir / MANIFEST_FILENAME
+    manifest_dst = clone_dir / MANIFEST_FILENAME
+    if manifest_src.exists():
+        shutil.copy2(manifest_src, manifest_dst)
         repo.git.add(MANIFEST_FILENAME)
     
-    # 处理删除的文件（仅记录，实际删除由下次 force push 处理）
+    # 处理删除的文件：从克隆目录中删除并 git rm
     for change in diff.deleted:
-        changed_files.append(f"D {change.path}")
+        dst_file = clone_dir / change.path
+        if dst_file.exists():
+            repo.git.rm(change.path)
+            changed_files.append(f"-{change.path}")
     
     # 生成提交消息
     commit_msg = _generate_commit_message(diff)
     
-    # 提交
+    # 提交（仅提交变更文件，不使用 add -A）
     try:
-        repo.git.add(A=True)  # 确保所有文件都被添加
         repo.git.commit(m=commit_msg, allow_empty=False)
         logger.info(f"已提交变更: {len(changed_files)} 个文件")
     except GitCommandError as e:
@@ -322,9 +431,9 @@ def push_to_github_incremental(
             }
         raise
     
-    # 推送
+    # 推送（不使用 force，保留远程历史）
     try:
-        repo.git.push(repo_url, f"HEAD:{branch}", force=True)
+        repo.git.push("origin", f"HEAD:{branch}")
         logger.info(f"增量推送成功到 {repo_full_name} 的 {branch} 分支")
     except GitCommandError as e:
         logger.error(f"推送失败：{e}")
@@ -335,7 +444,7 @@ def push_to_github_incremental(
     
     return {
         "status": "success",
-        "message": f"增量部署成功，共 {diff.total_changes} 个文件变更",
+        "message": f"增量部署成功，共 {len(changed_files)} 个文件变更",
         "repo": repo_full_name,
         "branch": branch,
         "changes": diff.to_dict()
@@ -409,30 +518,35 @@ def incremental_deploy(
     # 生成站点
     site_dir, local_manifest = generate_static_site(site_title, site_link, backup_dir)
     
-    if not local_manifest:
-        # 无法生成 manifest，回退到全量部署
-        logger.warning("无法生成 manifest，执行全量部署")
-        push_to_github(site_dir, github_token, branch)
-        return {
-            "status": "success",
-            "mode": "full",
-            "message": "全量部署成功（无 manifest）"
-        }
-    
-    # 准备增量部署
     try:
-        repo_full_name, diff = prepare_incremental_deploy(github_token, local_manifest, branch)
-    except Exception as e:
-        logger.warning(f"获取远程 manifest 失败，执行全量部署: {e}")
-        push_to_github(site_dir, github_token, branch)
-        return {
-            "status": "success",
-            "mode": "full",
-            "message": f"全量部署成功（远程获取失败: {e}）"
-        }
-    
-    # 执行增量部署
-    result = push_to_github_incremental(site_dir, github_token, diff, branch)
-    result["mode"] = "incremental" if diff.has_changes else "skipped"
-    
-    return result
+        if not local_manifest:
+            # 无法生成 manifest，回退到全量部署
+            logger.warning("无法生成 manifest，执行全量部署")
+            push_to_github(site_dir, github_token, branch)
+            return {
+                "status": "success",
+                "mode": "full",
+                "message": "全量部署成功（无 manifest）"
+            }
+        
+        # 准备增量部署
+        try:
+            repo_full_name, diff = prepare_incremental_deploy(github_token, local_manifest, branch)
+        except Exception as e:
+            logger.warning(f"获取远程 manifest 失败，执行全量部署: {e}")
+            push_to_github(site_dir, github_token, branch)
+            return {
+                "status": "success",
+                "mode": "full",
+                "message": f"全量部署成功（远程获取失败: {e}）"
+            }
+        
+        # 执行增量部署
+        result = push_to_github_incremental(site_dir, github_token, diff, branch)
+        result["mode"] = "incremental" if diff.has_changes else "skipped"
+        
+        return result
+    finally:
+        # 清理生成的临时站点目录
+        shutil.rmtree(site_dir, ignore_errors=True)
+        logger.info(f"已清理临时站点目录: {site_dir}")

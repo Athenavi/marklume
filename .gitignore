@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Cache
+.cache/
+
+# Backups (generated during deploy)
+backups/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+archive/
+pages/

@@ -117,7 +117,10 @@ app.add_middleware(SessionMiddleware, secret_key=secrets.token_urlsafe(32))
 # 静态文件与模板
 base_dir = Path(__file__).parent.parent
 static_dir = base_dir / "frontend/static"
+pages_dir = base_dir / "pages"
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
+if pages_dir.exists():
+    app.mount("/pages", StaticFiles(directory=pages_dir, html=True), name="pages")
 templates = Jinja2Templates(directory="frontend/templates")
 
 # 将站点信息注入所有模板的全局上下文
@@ -163,7 +166,8 @@ async def get_article_form_data(request: Request):
 @app.get("/articles")
 async def list_articles(request: Request):
     articles = await fetch_articles()
-    return render_template("index.html", request, articles=articles)
+    pages = _load_pages()
+    return render_template("index.html", request, articles=articles, pages=pages)
 
 
 @app.get("/articles/new")
@@ -273,6 +277,7 @@ from .deploy_utils import (
     incremental_deploy,
     prepare_incremental_deploy,
     push_to_github_incremental,
+    _load_pages,
 )
 import threading
 
