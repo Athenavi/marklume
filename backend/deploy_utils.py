@@ -6,7 +6,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-import markdown
 import requests
 import urllib3
 from git import Repo, GitCommandError
@@ -116,12 +115,11 @@ def generate_static_site(
         for idx, md_file in enumerate(sorted(ARCHIVE_DIR.glob("*.md")), start=1):
             title = md_file.stem
             raw_content = md_file.read_text(encoding="utf-8")
-            html_content = markdown.markdown(raw_content, extensions=['fenced_code', 'tables'])
             stat = md_file.stat()
             articles.append({
                 "id": idx,
                 "title": title,
-                "content": html_content,
+                "content": raw_content,
                 "created_at": datetime.fromtimestamp(stat.st_ctime),
                 "updated_at": datetime.fromtimestamp(stat.st_mtime),
             })
