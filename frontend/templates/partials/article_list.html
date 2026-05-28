@@ -1,7 +1,7 @@
 {% if articles %}
 <div class="grid gap-6 sm:gap-8">
     {% for article in articles %}
-    <article class="group animate-fade-in" style="animation-delay: {{ loop.index0 * 50 }}ms">
+    <article class="group animate-fade-in" style="animation-delay: {{ loop.index0 * 50 }}ms" data-title="{{ article.title }}">
         <a href="/articles/{{ article.id }}" class="block p-6 -mx-6 rounded-2xl hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors" hx-boost="true">
             <div class="flex flex-col sm:flex-row sm:items-start gap-4">
                 <!-- 日期（桌面端左侧） -->

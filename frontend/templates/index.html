@@ -47,16 +47,10 @@
         <!-- 搜索框 -->
         <div class="relative w-full sm:w-72">
             <input
+                id="search-input"
                 type="text"
                 placeholder="搜索文章..."
                 class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all text-sm"
-                hx-get="/articles"
-                hx-trigger="keyup changed delay:300ms"
-                hx-target="#article-list"
-                hx-swap="innerHTML"
-                hx-include="this"
-                name="search"
-                value="{{ pagination.search if pagination else '' }}"
             >
             <i class="fas fa-search absolute left-3.5 top-3 text-neutral-400 dark:text-neutral-500 text-sm"></i>
         </div>
@@ -66,5 +60,43 @@
     <div id="article-list">
         {% include "partials/article_list.html" %}
     </div>
+
+    <!-- 搜索无结果提示 -->
+    <div id="search-empty" class="hidden text-center py-20">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neutral-100 dark:bg-neutral-800 mb-4">
+            <i class="fas fa-search text-2xl text-neutral-400 dark:text-neutral-500"></i>
+        </div>
+        <p class="text-neutral-500 dark:text-neutral-400">没有找到匹配的文章</p>
+        <p class="text-sm text-neutral-400 dark:text-neutral-500 mt-1">试试其他关键词</p>
+    </div>
 </div>
+
+<script>
+(function() {
+    const searchInput = document.getElementById('search-input');
+    const articleList = document.getElementById('article-list');
+    const searchEmpty = document.getElementById('search-empty');
+
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim().toLowerCase();
+        const articles = articleList.querySelectorAll('article[data-title]');
+        let visibleCount = 0;
+
+        articles.forEach(function(article) {
+            const title = (article.getAttribute('data-title') || '').toLowerCase();
+            const match = !query || title.indexOf(query) !== -1;
+            article.style.display = match ? '' : 'none';
+            if (match) visibleCount++;
+        });
+
+        // 显示/隐藏分页
+        var nav = articleList.querySelector('nav');
+        if (nav) nav.style.display = query ? 'none' : '';
+
+        // 显示/隐藏无结果提示
+        searchEmpty.classList.toggle('hidden', visibleCount > 0);
+        articleList.style.display = visibleCount === 0 && query ? 'none' : '';
+    });
+})();
+</script>
 {% endblock %}
