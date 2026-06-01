@@ -91,7 +91,8 @@ def generate_static_site(
     site_title: str,
     site_link: str,
     backup_dir: Path = None,
-    with_manifest: bool = True
+    with_manifest: bool = True,
+    giscus_config: Optional[dict] = None
 ) -> tuple[Path, Optional[dict]]:
     """
     生成静态站点到临时目录
@@ -101,6 +102,7 @@ def generate_static_site(
         site_link: 站点链接
         backup_dir: 备份目录（可选）
         with_manifest: 是否生成 manifest 文件
+        giscus_config: Giscus 评论配置（可选，为 None 或 enabled=False 时不启用）
     
     Returns:
         (站点目录路径, manifest 字典)
@@ -163,6 +165,8 @@ def generate_static_site(
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
     env.globals["site_title"] = site_title
     env.globals["site_link"] = site_link
+    # 将 giscus 配置注入模板全局上下文
+    env.globals["giscus"] = giscus_config if (giscus_config and giscus_config.get("enabled")) else None
 
     # 构造一个假 request，避免模板中访问出错
     class FakeRequest:
@@ -205,6 +209,81 @@ def generate_static_site(
     return output_dir, manifest
 
 
+def _generate_readme_content(site_link: str, diff: 'DiffResult' = None, mode: str = "full") -> str:
+    """
+    生成仓库 README.md 内容
+    
+    Args:
+        site_link: 站点访问地址
+        diff: 差异结果（增量部署时提供，用于展示变更详情）
+        mode: 部署模式 ("full" | "incremental")
+    
+    Returns:
+        README.md 的 Markdown 内容
+    """
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    mode_label = "全量部署" if mode == "full" else "增量部署"
+    
+    lines = [
+        f"# {site_link.split('//')[1]}",
+        "",
+        f"> 🚀 由 **[MarkLume](https://github.com/Athenavi/MarkLume)** 自动生成并部署",
+        "",
+        "---",
+        "",
+        "## 🌐 站点访问地址",
+        "",
+        f"[{site_link}]({site_link})",
+        "",
+        "## 📅 部署信息",
+        "",
+        "| 项目 | 详情 |",
+        "|------|------|",
+        f"| 最近部署时间 | `{now}` |",
+        f"| 部署模式 | {mode_label} |",
+        "",
+    ]
+    
+    # 变更内容
+    if diff and diff.has_changes:
+        lines.append("## 📝 更新内容")
+        lines.append("")
+        
+        if diff.added:
+            lines.append(f"### ➕ 新增 ({len(diff.added)} 个文件)")
+            lines.append("")
+            for change in diff.added:
+                lines.append(f"- `{change.path}`")
+            lines.append("")
+        
+        if diff.modified:
+            lines.append(f"### ✏️ 修改 ({len(diff.modified)} 个文件)")
+            lines.append("")
+            for change in diff.modified:
+                lines.append(f"- `{change.path}`")
+            lines.append("")
+        
+        if diff.deleted:
+            lines.append(f"### ❌ 删除 ({len(diff.deleted)} 个文件)")
+            lines.append("")
+            for change in diff.deleted:
+                lines.append(f"- `{change.path}`")
+            lines.append("")
+    elif mode == "full":
+        lines.append("## 📝 更新内容")
+        lines.append("")
+        lines.append("全量部署 — 所有站点文件已重新生成并推送。")
+        lines.append("")
+    
+    lines.extend([
+        "---",
+        "",
+        "*本 README 由 [MarkLume](https://github.com/Athenavi/MarkLume) 自动生成和维护*",
+    ])
+    
+    return "\n".join(lines)
+
+
 def push_to_github(site_dir: Path, github_token: str, branch: str = BRANCH_TARGET):
     """
     自动部署到 {用户名}.github.io 仓库。
@@ -215,6 +294,7 @@ def push_to_github(site_dir: Path, github_token: str, branch: str = BRANCH_TARGE
     # 1. 获取用户名
     username = get_github_username(github_token)
     repo_full_name = f"{username}/{username}.github.io"
+    site_link = f"https://{username}.github.io"
     logger.info(f"目标仓库：{repo_full_name}")
 
     # 2. 检查仓库是否存在，不存在则创建
@@ -222,7 +302,13 @@ def push_to_github(site_dir: Path, github_token: str, branch: str = BRANCH_TARGE
         logger.info(f"仓库 {repo_full_name} 不存在，正在创建...")
         _create_repo(github_token, username)  # 仓库名固定为 username.github.io
 
-    # 3. 推送站点
+    # 3. 生成 README.md 并写入站点目录
+    readme_content = _generate_readme_content(site_link, mode="full")
+    readme_path = site_dir / "README.md"
+    readme_path.write_text(readme_content, encoding="utf-8")
+    logger.info("已生成 README.md")
+
+    # 4. 推送站点
     repo_url = f"https://{github_token}@github.com/{repo_full_name}.git"
     repo = Repo.init(site_dir)
     repo.config_writer().set_value("user", "name", "MarkLume Deployer").release()
@@ -241,7 +327,7 @@ def push_to_github(site_dir: Path, github_token: str, branch: str = BRANCH_TARGE
         logger.error(f"推送失败：{e}")
         raise RuntimeError("推送到 GitHub 失败，请检查 Token 权限或网络。")
 
-    # 4. 尝试开启 GitHub Pages
+    # 5. 尝试开启 GitHub Pages
     _enable_pages(github_token, repo_full_name, branch)
 
 
@@ -373,7 +459,8 @@ def push_to_github_incremental(
     site_dir: Path,
     github_token: str,
     diff: DiffResult,
-    branch: str = BRANCH_TARGET
+    branch: str = BRANCH_TARGET,
+    site_link: str = None
 ) -> dict:
     """
     增量部署到 GitHub
@@ -388,12 +475,15 @@ def push_to_github_incremental(
         github_token: GitHub Token
         diff: 差异结果
         branch: 目标分支
+        site_link: 站点访问地址（可选，用于生成 README）
     
     Returns:
         部署结果摘要
     """
     username = get_github_username(github_token)
     repo_full_name = f"{username}/{username}.github.io"
+    if not site_link:
+        site_link = f"https://{username}.github.io"
     
     # 检查仓库是否存在
     if not _repo_exists(github_token, repo_full_name):
@@ -440,6 +530,13 @@ def push_to_github_incremental(
             repo.git.rm(change.path)
             changed_files.append(f"-{change.path}")
     
+    # 生成 README.md 并写入克隆目录
+    readme_content = _generate_readme_content(site_link, diff=diff, mode="incremental")
+    readme_path = clone_dir / "README.md"
+    readme_path.write_text(readme_content, encoding="utf-8")
+    repo.git.add("README.md")
+    logger.info("已更新 README.md")
+
     # 生成提交消息
     commit_msg = _generate_commit_message(diff)
     
@@ -512,12 +609,13 @@ def full_deploy(
     site_link: str,
     github_token: str,
     branch: str = BRANCH_TARGET,
-    backup_dir: Path = None
+    backup_dir: Path = None,
+    giscus_config: Optional[dict] = None
 ) -> dict:
     """
     全量部署（兼容旧逻辑）
     """
-    site_dir, manifest = generate_static_site(site_title, site_link, backup_dir)
+    site_dir, manifest = generate_static_site(site_title, site_link, backup_dir, giscus_config=giscus_config)
     push_to_github(site_dir, github_token, branch)
     
     return {
@@ -532,7 +630,8 @@ def incremental_deploy(
     site_link: str,
     github_token: str,
     branch: str = BRANCH_TARGET,
-    backup_dir: Path = None
+    backup_dir: Path = None,
+    giscus_config: Optional[dict] = None
 ) -> dict:
     """
     智能增量部署
@@ -542,7 +641,7 @@ def incremental_deploy(
     3. 根据差异执行增量或全量部署
     """
     # 生成站点
-    site_dir, local_manifest = generate_static_site(site_title, site_link, backup_dir)
+    site_dir, local_manifest = generate_static_site(site_title, site_link, backup_dir, giscus_config=giscus_config)
     
     try:
         if not local_manifest:
@@ -568,7 +667,7 @@ def incremental_deploy(
             }
         
         # 执行增量部署
-        result = push_to_github_incremental(site_dir, github_token, diff, branch)
+        result = push_to_github_incremental(site_dir, github_token, diff, branch, site_link=site_link)
         result["mode"] = "incremental" if diff.has_changes else "skipped"
         
         return result

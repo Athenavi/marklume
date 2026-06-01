@@ -98,6 +98,111 @@
                     </label>
                 </div>
             </div>
+
+            <!-- Giscus 评论配置 -->
+            <div class="pt-4 border-t border-neutral-200 dark:border-neutral-700">
+                <div class="flex items-center justify-between mb-3">
+                    <label class="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                        <i class="fas fa-comments text-neutral-400 dark:text-neutral-500"></i>
+                        Giscus 评论功能
+                    </label>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="giscus_enabled" id="giscus-toggle" class="sr-only peer" {% if giscus.enabled %}checked{% endif %}>
+                        <div class="w-11 h-6 bg-neutral-200 dark:bg-neutral-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-neutral-300 dark:peer-focus:ring-neutral-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-900 dark:peer-checked:bg-white"></div>
+                    </label>
+                </div>
+                <p class="text-xs text-neutral-400 dark:text-neutral-500 mb-4">
+                    基于 GitHub Discussions 的评论系统，需要在 <a href="https://giscus.app" target="_blank" class="underline hover:text-neutral-600 dark:hover:text-neutral-300">giscus.app</a> 获取配置信息
+                </p>
+                
+                <div id="giscus-config" class="space-y-4 {% if not giscus.enabled %}hidden{% endif %}">
+                    <!-- 引导提示：如何获取 Giscus 配置 -->
+                    <div id="giscus-guide" class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                        <h4 class="flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-300 mb-3">
+                            <i class="fas fa-lightbulb"></i>
+                            如何获取 Giscus 配置？
+                        </h4>
+                        <ol class="text-xs text-blue-700 dark:text-blue-400 space-y-2 ml-4 list-decimal">
+                            <li>确保你的 GitHub 仓库已开启 <span class="font-medium">Discussions</span> 功能
+                                <br><span class="text-blue-500 dark:text-blue-500">仓库 → Settings → Features → 勾选 Discussions</span></li>
+                            <li>访问 <a href="https://github.com/apps/giscus" target="_blank" class="underline font-medium hover:text-blue-900 dark:hover:text-blue-200">GitHub Apps - giscus</a>，点击 <span class="font-medium">Install</span> 安装到你的仓库</li>
+                            <li>访问 <a href="https://giscus.app" target="_blank" class="underline font-medium hover:text-blue-900 dark:hover:text-blue-200">giscus.app</a>，在 "Configuration" 部分填入你的仓库名</li>
+                            <li>选择一个 Discussion 分类（推荐 <code class="bg-blue-100 dark:bg-blue-800 px-1 py-0.5 rounded text-xs">Announcements</code>）</li>
+                            <li>页面下方会自动生成 <span class="font-medium">仓库 ID</span> 和 <span class="font-medium">分类 ID</span>，复制粘贴到下方对应字段即可</li>
+                        </ol>
+                    </div>
+
+                    <!-- 校验警告（仅在必填字段缺失时显示） -->
+                    <div id="giscus-warning" class="hidden bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                        <h4 class="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-300 mb-2">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            评论配置不完整
+                        </h4>
+                        <p id="giscus-warning-msg" class="text-xs text-amber-700 dark:text-amber-400"></p>
+                    </div>
+
+                    <div class="bg-neutral-50 dark:bg-neutral-800/50 rounded-xl p-4 space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1.5">仓库 <span class="text-red-400">*</span></label>
+                                <input type="text" name="giscus_repo" id="giscus_repo" placeholder="owner/repo" value="{{ giscus.repo or '' }}"
+                                       class="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all text-sm font-mono giscus-field">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1.5">仓库 ID <span class="text-red-400">*</span></label>
+                                <input type="text" name="giscus_repoId" id="giscus_repoId" placeholder="R_kgDOxxxxxx" value="{{ giscus.repoId or '' }}"
+                                       class="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all text-sm font-mono giscus-field">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1.5">分类 <span class="text-red-400">*</span></label>
+                                <input type="text" name="giscus_category" id="giscus_category" placeholder="Announcements" value="{{ giscus.category or '' }}"
+                                       class="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all text-sm giscus-field">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1.5">分类 ID <span class="text-red-400">*</span></label>
+                                <input type="text" name="giscus_categoryId" id="giscus_categoryId" placeholder="DIC_kwDOxxxxxx" value="{{ giscus.categoryId or '' }}"
+                                       class="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all text-sm font-mono giscus-field">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1.5">主题</label>
+                                <select name="giscus_theme"
+                                        class="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all text-sm">
+                                    <option value="preferred_color_scheme" {% if giscus.theme == 'preferred_color_scheme' %}selected{% endif %}>跟随系统</option>
+                                    <option value="light" {% if giscus.theme == 'light' %}selected{% endif %}>浅色</option>
+                                    <option value="dark" {% if giscus.theme == 'dark' %}selected{% endif %}>深色</option>
+                                    <option value="dark_dimmed" {% if giscus.theme == 'dark_dimmed' %}selected{% endif %}>深色（柔和）</option>
+                                    <option value="transparent_dark" {% if giscus.theme == 'transparent_dark' %}selected{% endif %}>透明深色</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1.5">语言</label>
+                                <select name="giscus_lang"
+                                        class="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all text-sm">
+                                    <option value="zh-CN" {% if giscus.lang == 'zh-CN' %}selected{% endif %}>简体中文</option>
+                                    <option value="zh-TW" {% if giscus.lang == 'zh-TW' %}selected{% endif %}>繁體中文</option>
+                                    <option value="en" {% if giscus.lang == 'en' %}selected{% endif %}>English</option>
+                                    <option value="ja" {% if giscus.lang == 'ja' %}selected{% endif %}>日本語</option>
+                                    <option value="ko" {% if giscus.lang == 'ko' %}selected{% endif %}>한국어</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1.5">输入框位置</label>
+                                <select name="giscus_inputPosition"
+                                        class="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all text-sm">
+                                    <option value="bottom" {% if giscus.inputPosition == 'bottom' %}selected{% endif %}>评论区下方</option>
+                                    <option value="top" {% if giscus.inputPosition == 'top' %}selected{% endif %}>评论区上方</option>
+                                </select>
+                            </div>
+                        </div>
+                        <!-- 隐藏字段 -->
+                        <input type="hidden" name="giscus_mapping" value="{{ giscus.mapping or 'pathname' }}">
+                        <input type="hidden" name="giscus_reactionsEnabled" value="{{ giscus.reactionsEnabled or '1' }}">
+                        <input type="hidden" name="giscus_emitMetadata" value="{{ giscus.emitMetadata or '0' }}">
+                    </div>
+                </div>
+            </div>
         </div>
         
         <div class="flex gap-3 mt-6">
@@ -172,6 +277,85 @@
     const statusIcon = document.getElementById('status-icon');
     const statusMode = document.getElementById('statusMode');
     const changeDetails = document.getElementById('changeDetails');
+
+    // Giscus 开关逻辑与配置校验
+    const giscusToggle = document.getElementById('giscus-toggle');
+    const giscusConfig = document.getElementById('giscus-config');
+    const giscusWarning = document.getElementById('giscus-warning');
+    const giscusWarningMsg = document.getElementById('giscus-warning-msg');
+    const giscusGuide = document.getElementById('giscus-guide');
+    const giscusFields = document.querySelectorAll('.giscus-field');
+
+    const GISCUS_REQUIRED_LABELS = {
+        'giscus_repo': '仓库',
+        'giscus_repoId': '仓库 ID',
+        'giscus_category': '分类',
+        'giscus_categoryId': '分类 ID'
+    };
+
+    // 校验 giscus 配置是否完整，返回 { valid: boolean, missing: string[] }
+    function validateGiscus() {
+        const missing = [];
+        Object.keys(GISCUS_REQUIRED_LABELS).forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el && !el.value.trim()) {
+                missing.push(GISCUS_REQUIRED_LABELS[id]);
+            }
+        });
+        return { valid: missing.length === 0, missing: missing };
+    }
+
+    // 更新校验警告显示
+    function updateGiscusWarning() {
+        if (!giscusToggle.checked) {
+            giscusWarning.classList.add('hidden');
+            // 清除字段高亮
+            giscusFields.forEach(function(f) {
+                f.classList.remove('border-red-400', 'dark:border-red-500', 'ring-2', 'ring-red-200', 'dark:ring-red-800');
+            });
+            return true;
+        }
+        var result = validateGiscus();
+        if (!result.valid) {
+            giscusWarning.classList.remove('hidden');
+            giscusWarningMsg.innerHTML = '启用评论功能需要填写以下必填字段：<strong>' + result.missing.join('、') + '</strong>。请参考上方的配置指南完成填写。';
+            // 高亮空字段
+            Object.keys(GISCUS_REQUIRED_LABELS).forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el && !el.value.trim()) {
+                    el.classList.add('border-red-400', 'dark:border-red-500');
+                } else if (el) {
+                    el.classList.remove('border-red-400', 'dark:border-red-500');
+                }
+            });
+            return false;
+        } else {
+            giscusWarning.classList.add('hidden');
+            // 清除字段高亮
+            giscusFields.forEach(function(f) {
+                f.classList.remove('border-red-400', 'dark:border-red-500');
+            });
+            return true;
+        }
+    }
+
+    // 开关切换时校验
+    giscusToggle.addEventListener('change', function() {
+        giscusConfig.classList.toggle('hidden', !this.checked);
+        updateGiscusWarning();
+    });
+
+    // 输入框变化时实时校验
+    giscusFields.forEach(function(field) {
+        field.addEventListener('input', function() {
+            updateGiscusWarning();
+        });
+    });
+
+    // 页面加载时如果 giscus 已开启则执行一次校验
+    if (giscusToggle.checked) {
+        updateGiscusWarning();
+    }
     const changeList = document.getElementById('changeList');
     const deployBtn = document.getElementById('deployBtn');
     const previewBtn = document.getElementById('previewBtn');
@@ -254,6 +438,14 @@
     // 提交部署
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        // 校验 giscus 配置（仅在开启时校验）
+        if (!updateGiscusWarning()) {
+            // 滚动到 giscus 配置区
+            giscusConfig.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
         deployBtn.disabled = true;
         deployBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>部署中...</span>';
         previewBtn.disabled = true;
@@ -267,6 +459,12 @@
 
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
+        // checkbox 未勾选时不会出现在 FormData 中，需要手动处理
+        data.giscus_enabled = giscusToggle.checked;
+        // 确保布尔值类型正确
+        data.giscus_reactionsEnabled = data.giscus_reactionsEnabled || '1';
+        data.giscus_emitMetadata = data.giscus_emitMetadata || '0';
+        data.giscus_mapping = data.giscus_mapping || 'pathname';
 
         try {
             const res = await fetch('/deploy/start', {

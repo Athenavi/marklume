@@ -41,11 +41,58 @@ ADMIN_KEY_EXPIRY = timedelta(days=365 * 10)
 # 站点配置（默认值）
 SITE_TITLE = "Marklume"
 SITE_LINK = "https://github.com/Athenavi/MarkLume"
+GISCUS_CONFIG = {
+    "enabled": False,
+    "repo": "",
+    "repoId": "",
+    "category": "",
+    "categoryId": "",
+    "mapping": "pathname",
+    "reactionsEnabled": "1",
+    "emitMetadata": "0",
+    "inputPosition": "bottom",
+    "theme": "preferred_color_scheme",
+    "lang": "zh-CN",
+}
 if os.path.exists("config.ini"):
     config = ConfigParser()
     config.read("config.ini")
     SITE_TITLE = config.get("site", "site_name", fallback=SITE_TITLE)
     SITE_LINK = config.get("site", "site_link", fallback=SITE_LINK)
+    if config.has_section("giscus"):
+        GISCUS_CONFIG["enabled"] = config.get("giscus", "enabled", fallback="false").lower() in ("true", "1", "yes")
+        GISCUS_CONFIG["repo"] = config.get("giscus", "repo", fallback="")
+        GISCUS_CONFIG["repoId"] = config.get("giscus", "repoId", fallback="")
+        GISCUS_CONFIG["category"] = config.get("giscus", "category", fallback="")
+        GISCUS_CONFIG["categoryId"] = config.get("giscus", "categoryId", fallback="")
+        GISCUS_CONFIG["mapping"] = config.get("giscus", "mapping", fallback="pathname")
+        GISCUS_CONFIG["reactionsEnabled"] = config.get("giscus", "reactionsEnabled", fallback="1")
+        GISCUS_CONFIG["emitMetadata"] = config.get("giscus", "emitMetadata", fallback="0")
+        GISCUS_CONFIG["inputPosition"] = config.get("giscus", "inputPosition", fallback="bottom")
+        GISCUS_CONFIG["theme"] = config.get("giscus", "theme", fallback="preferred_color_scheme")
+        GISCUS_CONFIG["lang"] = config.get("giscus", "lang", fallback="zh-CN")
+
+
+def _save_giscus_config(giscus_cfg: dict):
+    """将 giscus 配置保存到 config.ini"""
+    config = ConfigParser()
+    config.read("config.ini", encoding="utf-8")
+    if not config.has_section("giscus"):
+        config.add_section("giscus")
+    config.set("giscus", "enabled", str(giscus_cfg.get("enabled", False)).lower())
+    config.set("giscus", "repo", giscus_cfg.get("repo", ""))
+    config.set("giscus", "repoId", giscus_cfg.get("repoId", ""))
+    config.set("giscus", "category", giscus_cfg.get("category", ""))
+    config.set("giscus", "categoryId", giscus_cfg.get("categoryId", ""))
+    config.set("giscus", "mapping", giscus_cfg.get("mapping", "pathname"))
+    config.set("giscus", "reactionsEnabled", giscus_cfg.get("reactionsEnabled", "1"))
+    config.set("giscus", "emitMetadata", giscus_cfg.get("emitMetadata", "0"))
+    config.set("giscus", "inputPosition", giscus_cfg.get("inputPosition", "bottom"))
+    config.set("giscus", "theme", giscus_cfg.get("theme", "preferred_color_scheme"))
+    config.set("giscus", "lang", giscus_cfg.get("lang", "zh-CN"))
+    with open("config.ini", "w", encoding="utf-8") as f:
+        config.write(f)
+    logger.info("Giscus 配置已保存到 config.ini")
 
 
 # ---------- 管理员密钥持久化 ----------
@@ -131,6 +178,7 @@ templates = Jinja2Templates(directory="frontend/templates")
 # 将站点信息注入所有模板的全局上下文
 templates.env.globals["site_title"] = SITE_TITLE
 templates.env.globals["site_link"] = SITE_LINK
+templates.env.globals["giscus"] = GISCUS_CONFIG if GISCUS_CONFIG["enabled"] else None
 
 
 # ---------- 辅助函数：统一渲染模板，自动携带 request 和 is_admin ----------
@@ -305,11 +353,22 @@ class DeployForm(BaseModel):
     site_title: str = "My Blog"
     github_token: str
     mode: str = "auto"  # auto | full | incremental
+    giscus_enabled: bool = False
+    giscus_repo: str = ""
+    giscus_repoId: str = ""
+    giscus_category: str = ""
+    giscus_categoryId: str = ""
+    giscus_mapping: str = "pathname"
+    giscus_reactionsEnabled: str = "1"
+    giscus_emitMetadata: str = "0"
+    giscus_inputPosition: str = "bottom"
+    giscus_theme: str = "preferred_color_scheme"
+    giscus_lang: str = "zh-CN"
 
 
 @app.get("/deploy")
 async def deploy_page(request: Request):
-    return render_template("deploy.html", request, status=deploy_status)
+    return render_template("deploy.html", request, status=deploy_status, giscus=GISCUS_CONFIG)
 
 
 @app.post("/deploy/start")
@@ -332,11 +391,47 @@ async def start_deploy(request: Request, form_data: DeployForm):
             site_link = f"https://{username}.github.io"
             deploy_status["message"] = f"目标站点：{site_link}，正在生成静态文件..."
 
-            # 2. 根据模式执行部署
+            # 2. 构建 giscus 配置
+            giscus_cfg = {
+                "enabled": form_data.giscus_enabled,
+                "repo": form_data.giscus_repo,
+                "repoId": form_data.giscus_repoId,
+                "category": form_data.giscus_category,
+                "categoryId": form_data.giscus_categoryId,
+                "mapping": form_data.giscus_mapping,
+                "reactionsEnabled": form_data.giscus_reactionsEnabled,
+                "emitMetadata": form_data.giscus_emitMetadata,
+                "inputPosition": form_data.giscus_inputPosition,
+                "theme": form_data.giscus_theme,
+                "lang": form_data.giscus_lang,
+            }
+            if giscus_cfg["enabled"]:
+                # 校验 giscus 必填字段
+                _giscus_missing = []
+                if not giscus_cfg["repo"].strip():
+                    _giscus_missing.append("仓库")
+                if not giscus_cfg["repoId"].strip():
+                    _giscus_missing.append("仓库 ID")
+                if not giscus_cfg["category"].strip():
+                    _giscus_missing.append("分类")
+                if not giscus_cfg["categoryId"].strip():
+                    _giscus_missing.append("分类 ID")
+                if _giscus_missing:
+                    deploy_status["message"] = f"评论配置不完整，缺少：{'、'.join(_giscus_missing)}。请填写所有必填字段后再部署。"
+                    deploy_status["mode"] = "error"
+                    deploy_status["running"] = False
+                    return
+                # 用部署表单的值更新配置文件
+                _save_giscus_config(giscus_cfg)
+
+            # 3. 根据模式执行部署
             if form_data.mode == "full":
                 # 全量部署
                 deploy_status["message"] = "执行全量部署..."
-                site_dir, _ = generate_static_site(form_data.site_title, site_link, backup_dir=backup_dir)
+                site_dir, _ = generate_static_site(
+                    form_data.site_title, site_link,
+                    backup_dir=backup_dir, giscus_config=giscus_cfg
+                )
                 push_to_github(site_dir, form_data.github_token)
                 deploy_status["message"] = f"全量部署成功！访问 {site_link}"
                 deploy_status["mode"] = "full"
@@ -347,7 +442,8 @@ async def start_deploy(request: Request, form_data: DeployForm):
                     form_data.site_title,
                     site_link,
                     form_data.github_token,
-                    backup_dir=backup_dir
+                    backup_dir=backup_dir,
+                    giscus_config=giscus_cfg
                 )
                 
                 deploy_status["changes"] = result.get("changes")
