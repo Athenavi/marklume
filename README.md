@@ -1,6 +1,6 @@
 # MarkLume
 
-**极简 · 快速 · 一键部署的个人 Markdown 博客**
+**极简 · 快速 · 一键部署的个人 Markdown 博客 | GitHub.io 站点生成器**
 
 ![Python](https://img.shields.io/badge/python-3.13%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -98,6 +98,9 @@ archive/
 ---
 
 ## 🚀 一键部署到 GitHub Pages
+## 🌐 GitHub.io 站点生成器
+
+> MarkLume 不仅仅是一个本地博客工具——它同时也是一个 **GitHub Pages 静态站点生成器**。通过一键部署，它会将你的 Markdown 文章转化为一个完整的、可直接访问的 `.github.io` 站点。
 
 > 仅支持部署到 `你的用户名.github.io` 仓库（例如 `athenavi.github.io`）。部署将强制覆盖该仓库 `main` 分支的全部内容！
 
@@ -120,6 +123,49 @@ archive/
 
 ---
 
+
+### 生成的站点特性
+
+| 特性 | 说明 |
+|------|------|
+| **响应式设计** | 基于 Tailwind CSS 构建，完美适配桌面端和移动端 |
+| **深色/浅色主题** | 自动跟随系统偏好，也支持手动切换 |
+| **文章分类** | 按 `archive/` 目录结构自动归类，支持分类浏览 |
+| **搜索功能** | 首页内置文章搜索，按标题实时过滤 |
+| **自定义页面** | 支持独立 HTML 页面（放置在 `pages/` 目录） |
+| **Giscus 评论** | 可选集成 GitHub Discussions 评论系统 |
+| **增量部署** | 智能对比文件差异，仅推送变更内容，节省部署时间 |
+| **仓库 README** | 自动生成包含站点地址、部署时间和变更详情的仓库 README |
+
+### 站点结构
+
+部署后生成的 `.github.io` 仓库结构如下：
+
+```
+你的用户名.github.io/
+├── index.html                 # 首页（文章列表 + 分类 + 搜索）
+├── articles/
+│   ├── 1.html                 # 文章页
+│   ├── 2.html
+│   └── ...
+├── cate/
+│   └── 技术/                  # 按分类生成的目录
+│       └── 3.html
+├── pages/
+│   └── about.html             # 自定义页面（如有）
+├── static/                    # CSS、JS 等静态资源
+├── .marklume-manifest.json    # 增量部署用的文件清单
+└── README.md                  # 自动生成的仓库说明
+```
+
+### 部署模式
+
+- **自动模式**（默认）：首次部署时全量推送，后续自动检测差异并增量推送。
+- **全量模式**：重新生成所有文件并强制推送，适用于大规模内容变更。
+- **增量模式**：仅推送变更的文件，保持远程历史记录完整。
+
+---
+
 ## 📂 项目结构
 
 ```
@@ -129,13 +175,14 @@ marklume/
 │   ├── main.py              # FastAPI 应用入口
 │   ├── database.py          # 文章存取与缓存逻辑
 │   ├── models.py            # 数据模型
-│   └── deploy_utils.py      # 静态站点生成与 GitHub 推送
+│   ├── deploy_utils.py      # 静态站点生成、README 生成与 GitHub 推送
+│   └── manifest.py          # 增量部署的文件变更跟踪
 ├── frontend/
 │   ├── static/              # CSS、JS 等静态资源
-│   └── templates/           # Jinja2 模板
-├── build.py                 # 独立静态站点生成脚本（可单独使用）
+│   └── templates/           # Jinja2 模板（含 Giscus 评论组件）
+├── deploy_cli.py            # 命令行部署工具
 ├── admin_key.txt            # 管理员密钥（自动生成）
-├── config.ini               # 可选站点配置
+├── config.ini               # 站点与 Giscus 配置
 ├── requirements.txt
 └── README.md
 ```
